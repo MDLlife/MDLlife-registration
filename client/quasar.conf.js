@@ -1,4 +1,9 @@
 // Configuration for your app
+var webpack = require('webpack');
+var path = require('path');
+
+// Get our env variables
+const envparser = require('./config/envparser');
 
 module.exports = function (ctx) {
   return {
@@ -17,7 +22,7 @@ module.exports = function (ctx) {
       // 'mdi',
       // 'fontawesome'
     ],
-    supportIE: false,
+    supportIE: true,
     vendor: {
       add: [],
       remove: []
@@ -25,11 +30,27 @@ module.exports = function (ctx) {
     build: {
       scopeHoisting: true,
       vueRouterMode: 'history',
+      env: envparser(),
       // gzip: true,
       // analyze: true,
       // extractCSS: false,
       // useNotifier: false,
       extendWebpack (cfg) {
+        // Aliases
+        cfg.resolve.alias.env = path.resolve(__dirname, 'config/helpers/env.js');
+        //cfg.resolve.alias.services = path.resolve(__dirname, 'src/services')
+        //cfg.resolve.alias['@app'] = path.resolve(__dirname, 'src/app')
+        //cfg.resolve.alias.helpers = path.resolve(__dirname, 'src/app/helpers')
+        //cfg.resolve.alias['@events'] = path.resolve(__dirname, 'src/app/events')
+
+        // Make our helper function Global
+        cfg.plugins.push(
+          new webpack.ProvidePlugin({
+            'env': 'env' // this variable is our alias, it's not a string
+          })
+        );
+
+        // Rules
         cfg.module.rules.push({
           enforce: 'pre',
           test: /\.(js|vue)$/,
@@ -40,7 +61,7 @@ module.exports = function (ctx) {
     },
     devServer: {
       // https: true,
-      // port: 8080,
+      port: 8085,
       open: true // opens browser window automatically
     },
     // framework: 'all' --- includes everything; for dev only!
@@ -61,23 +82,17 @@ module.exports = function (ctx) {
         'QItemMain',
         'QItemSide'
       ],
-      directives: [
-        'Ripple'
-      ],
-      // Quasar plugins
-      plugins: [
-        'Notify'
-      ]
+      directives: ['Ripple'],
+      plugins: ['Notify', 'LocalStorage', 'SessionStorage', 'Cookies']
     },
     // animations: 'all' --- includes all animations
-    animations: [
-    ],
+    animations: [],
     pwa: {
       cacheExt: 'js,html,css,ttf,eot,otf,woff,woff2,json,svg,gif,jpg,jpeg,png,wav,ogg,webm,flac,aac,mp4,mp3',
       manifest: {
-        // name: 'Quasar App',
-        // short_name: 'Quasar-PWA',
-        // description: 'Best PWA App in town!',
+        name: 'MDLlife App',
+        short_name: 'MDLlife-PWA',
+        description: 'Best PWA App in town!',
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#ffffff',
