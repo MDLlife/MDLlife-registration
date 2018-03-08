@@ -54,6 +54,18 @@
               :max="minAge"
               default-view="year")
 
+          q-field(
+            icon="fa-id-card"
+            label=""
+            helper=""
+            error-label="We need a passport image")
+            q-uploader(
+              color="secondary"
+              auto-expand
+              stack-label="Passport"
+              hide-upload-button
+              :url="url")
+
           .float-right
             q-btn(type="submit" big class="bg-primary text-white") Add
 </template>
@@ -62,7 +74,7 @@
 // import { mapActions, mapGetters } from 'vuex'
 // import { Fire, Listen } from 'helpers'
 // import { User } from 'src/app/database/UserModel'
-import { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QSelect, QDatetime, Notify, date } from 'quasar'
+import { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QSelect, QDatetime, QUploader, Notify, date } from 'quasar'
 
 const today = new Date()
 const { subtractFromDate } = date
@@ -78,8 +90,8 @@ export default {
         birthday: null,
         synced: '0'
       },
-      minAge: subtractFromDate(today, { years: 18 }),
-      maxAge: subtractFromDate(today, { years: 80 }),
+      minAge: subtractFromDate(today, { year: 18 }),
+      maxAge: subtractFromDate(today, { year: 80 }),
       select: '',
       options: [
         {
@@ -156,7 +168,7 @@ export default {
     //   console.log('a custom event was dispatched', payload)
     // })
   },
-  components: { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QSelect, QDatetime }
+  components: { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QSelect, QDatetime, QUploader }
 }
 </script>
 

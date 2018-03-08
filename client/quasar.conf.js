@@ -1,9 +1,9 @@
 // Configuration for your app
-var webpack = require('webpack');
-var path = require('path');
+var webpack = require('webpack')
+var path = require('path')
 
 // Get our env variables
-const envparser = require('./config/envparser');
+const envparser = require('./config/envparser')
 
 module.exports = function (ctx) {
   return {
@@ -17,10 +17,10 @@ module.exports = function (ctx) {
     ],
     extras: [
       ctx.theme.mat ? 'roboto-font' : null,
-      'material-icons'
+      'material-icons',
       // 'ionicons',
       // 'mdi',
-      // 'fontawesome'
+      'fontawesome'
     ],
     supportIE: true,
     vendor: {
