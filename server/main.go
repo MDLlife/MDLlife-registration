@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"time"
 	"regexp"
-	"math/rand"
 	"path/filepath"
 	"strings"
 	"reflect"
@@ -17,40 +16,65 @@ import (
 
 	"github.com/kataras/iris"
 
-	"github.com/srajelli/ses-go"
+	"./ses"
 
 	"github.com/go-ozzo/ozzo-validation"
 	"github.com/go-ozzo/ozzo-validation/is"
 
 	"github.com/jinzhu/gorm"
-    _ "github.com/jinzhu/gorm/dialects/postgres"
+	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"database/sql/driver"
+	"github.com/lib/pq"
 )
 
 /*
 	go get ./...
 */
 
+// VerificationStage Type enumeration
+type VerificationStage uint8
+
+const (
+	EMAIL_NOT_VERIFIED VerificationStage = iota
+	EMAIL_VERIFIED
+	FIRST_STAGE
+)
+
+func (u *VerificationStage) Scan(value interface{}) error { *u = VerificationStage(value.(uint8)); return nil }
+func (u VerificationStage) Value() (driver.Value, error)  { return uint8(u), nil }
+
 // Whitelist is whitelist table structure.
 type Whitelist struct {
-	Id                     int64     `gorm:"primary_key"`
+	Id                     int64             `gorm:"primary_key"`
 	Passport               Photo
-	PassportId             int64     `gorm:"not null;unique"`
+	PassportId             int64             `gorm:"not null; unique"`
 	Selfie                 Photo
 	SelfieId               sql.NullInt64
 	Name                   string
-	Email                  string    `gorm:"not null;unique"`
+	Email                  string            `gorm:"not null; unique"`
 	Phone                  string
 	Birthday               string
 	Country                string
-	CreatedAt              time.Time `xorm:"created"`
+	VerificationStage      VerificationStage `gorm:"not null; default:0"`
+	EmailVerificationToken string
+	CreatedAt              time.Time
 }
 
 // Photo is photo table structure.
 type Photo struct {
-	ID        int64 // auto-increment by-default by xorm
-	Path      string    `xorm:"not null unique"`
-	Extension string    `xorm:"varchar(5) not null"`
-	CreatedAt time.Time `xorm:"created"`
+	Id        int64
+	Path      string `gorm:"not null; unique"`
+	Extension string `gorm:"varchar(5); not null"`
+	CreatedAt time.Time
+}
+
+type WhitelistToken struct {
+	Whitelist   Whitelist
+	WhitelistId int64
+	Token       string `gorm:"not null; unique"`
+	CreatedAt   time.Time
+	ExpiredAt   time.Time
+	UsedAt      pq.NullTime
 }
 
 // Config file structure
@@ -78,6 +102,8 @@ var (
 	dateValidatorRegex = regexp.MustCompile("^(?:[1-9]\\d{3}-(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|1\\d|2[0-9])|(?:0[13-9]|1[0-2])-(?:29|30)|(?:0[13578]|1[02])-31))$")
 	// phone number, simple
 	phoneNumberValidatorRegex = regexp.MustCompile("[0-9()\\pL\\s-+#]+")
+
+	tokenRegex = regexp.MustCompile("[0-9a-zA-Z]+")
 )
 
 func init() {
@@ -99,7 +125,7 @@ func main() {
 		db.Close()
 	})
 
-	db.AutoMigrate(&Whitelist{}, &Photo{})
+	db.AutoMigrate(&Whitelist{}, &Photo{}, &WhitelistToken{})
 
 	routes(app, db)
 
@@ -109,6 +135,34 @@ func main() {
 }
 
 func routes(app *iris.Application, db *gorm.DB) {
+
+	app.Get("/whitelist/confirm_email", func(ctx iris.Context) {
+		token := ctx.Params().GetTrim("token")
+
+		if !tokenRegex.MatchString(token) {
+			ctx.HTML("Invalid token data")
+			return
+		}
+
+		// todo check errors
+		whitelistToken := &WhitelistToken{}
+		if db.Where("token = ? AND used_at IS NULL", token).First(whitelistToken).Error != nil {
+			ctx.StatusCode(iris.StatusInternalServerError)
+			println("Token db search error")
+			return
+		}
+
+		whitelistToken.UsedAt = pq.NullTime{Time: time.Now(), Valid: true}
+		db.Update(whitelistToken)
+
+		whitelist := &Whitelist{}
+		db.First(whitelist, whitelistToken.WhitelistId)
+
+		whitelist.VerificationStage = EMAIL_VERIFIED
+		db.Update(whitelist)
+
+		ctx.HTML("Your email " + whitelist.Email + " has confirmed")
+	})
 
 	app.Post("/whitelist/request", func(ctx iris.Context) {
 		whitelist := &Whitelist{
@@ -156,7 +210,7 @@ func routes(app *iris.Application, db *gorm.DB) {
 			return
 		}
 
-		whitelist.PassportId = photo.ID
+		whitelist.PassportId = photo.Id
 
 		// Get selfie file from the request.
 		selfieFile, selfieInfo, selfieErr := ctx.FormFile("selfie")
@@ -180,23 +234,23 @@ func routes(app *iris.Application, db *gorm.DB) {
 				return
 			}
 
-			whitelist.SelfieId = sql.NullInt64{Int64: selfie.ID, Valid: true}
+			whitelist.SelfieId = sql.NullInt64{Int64: selfie.Id, Valid: true}
 		}
 
-		db.NewRecord(whitelist)
-		if err := db.Create(whitelist).Error; err != nil {
+		token, err := whitelist.StoreData(db)
+		if err != nil {
 			ctx.StatusCode(iris.StatusInternalServerError)
 			println("Can't insert whitelist " + err.Error())
 			return
 		}
 
-		sendEmail(whitelist.Email)
+		sendEmail(whitelist.Email, token)
 
 		ctx.JSON(map[string]bool{"success": true})
 	})
 }
 
-func sendEmail(to string) {
+func sendEmail(to string, token string) {
 	emailData := ses.Email{
 		To:      to,
 		From:    config.NoReplyEmail,
@@ -224,33 +278,6 @@ func combineDatetime(y string, m string, d string) string {
 	str += d
 
 	return str
-}
-
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-const (
-	letterIdxBits = 6                    // 6 bits to represent a letter index
-	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
-)
-
-var src = rand.NewSource(time.Now().UnixNano())
-
-func RandString(n int) string { // speed 303 ns/op
-	b := make([]byte, n)
-	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
-		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			b[i] = letterBytes[idx]
-			i--
-		}
-		cache >>= letterIdxBits
-		remain--
-	}
-
-	return string(b)
 }
 
 func loadConfig() {
@@ -293,7 +320,7 @@ func saveFile(file multipart.File, fileInfo *multipart.FileHeader) (path string,
 
 	// generate a new name if file exists
 	for {
-		filename = RandString(48)
+		filename = RandomString(48)
 		imgPath = filename[0:3] + "/" + filename[3:6]
 
 		// create path / bug with 0644
@@ -318,4 +345,43 @@ func saveFile(file multipart.File, fileInfo *multipart.FileHeader) (path string,
 	io.Copy(out, file)
 
 	return path, ext, nil
+}
+
+func (w *Whitelist) StoreData(db *gorm.DB) (emailToken string, err error) {
+	tx := db.Begin()
+	if err = tx.Error; err != nil {
+		return "", err
+	}
+
+	db.NewRecord(w)
+	if err = db.Create(w).Error; err != nil {
+		tx.Rollback()
+		return "", err
+	}
+
+	var token string
+	// regenerate if not unique
+	for {
+		token = SecureRandomString(35)
+		if db.Where("whitelist_id = ? AND token = ?", w.Id, token).First(&WhitelistToken{}).RecordNotFound() {
+			break
+		}
+	}
+
+	wt := &WhitelistToken{
+		Token:     token,
+		ExpiredAt: time.Now().AddDate(0, 0, 7),
+	}
+
+	db.NewRecord(wt)
+	if err = db.Create(wt).Error; err != nil {
+		tx.Rollback()
+		return "", err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
