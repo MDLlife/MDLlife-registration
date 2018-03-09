@@ -18,7 +18,7 @@
           label=""
           helper=""
           error-label="We need a valid name")
-            q-input(v-model="form.first_name" stack-label="Name (as in passsport)")
+            q-input(v-model="form.name" stack-label="Name (as in passsport)")
 
           q-field.email(
           icon="email"
@@ -32,12 +32,14 @@
             label=""
             helper=""
             error-label="We need a valid name")
-            q-select(
-              stack-label="Country of residence"
-              filter
-              separator
-              v-model="select"
-              :options="options")
+            q-input(
+              color="amber"
+              v-model="form.country"
+              placeholder=""
+              stack-label="Country of residence")
+              q-autocomplete(
+                :static-data="{field: 'value', list: countries}"
+                @selected="selected")
 
           q-field(
             icon="cake"
@@ -59,12 +61,7 @@
             label=""
             helper=""
             error-label="We need a passport image")
-            q-uploader(
-              color="secondary"
-              auto-expand
-              stack-label="Passport"
-              hide-upload-button
-              :url="url")
+            q-input(v-model="form.passport" type="file" stack-label="Passport")
 
           .float-right
             q-btn(type="submit" big class="bg-primary text-white") Add
@@ -74,47 +71,38 @@
 // import { mapActions, mapGetters } from 'vuex'
 // import { Fire, Listen } from 'helpers'
 // import { User } from 'src/app/database/UserModel'
-import { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QSelect, QDatetime, QUploader, Notify, date } from 'quasar'
+import { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QAutocomplete, QDatetime, QUploader, Notify, date } from 'quasar'
+import countries from 'assets/countries.json'
 
 const today = new Date()
 const { subtractFromDate } = date
+
+function parseCountries () {
+  return countries.map(country => {
+    return {
+      label: country,
+      value: country
+    }
+  })
+}
 
 export default {
   name: 'AddCredentials',
   data () {
     return {
       form: {
-        first_name: null,
-        last_name: null,
+        name: null,
         email: null,
+        country: null,
         birthday: null,
+        passport: null,
         synced: '0'
       },
       minAge: subtractFromDate(today, { year: 18 }),
       maxAge: subtractFromDate(today, { year: 80 }),
       select: '',
-      options: [
-        {
-          label: 'Google',
-          value: 'goog'
-        },
-        {
-          label: 'Facebook',
-          value: 'fb'
-        },
-        {
-          label: 'Twitter',
-          value: 'twtr'
-        },
-        {
-          label: 'Apple Inc.',
-          value: 'appl'
-        },
-        {
-          label: 'Oracle',
-          value: 'ora'
-        }
-      ]
+      terms: '',
+      countries: parseCountries()
     }
   },
   methods: {
@@ -127,6 +115,9 @@ export default {
         color: 'positive',
         textcolor: '#fff'
       })
+    },
+    selected (item) {
+      this.$q.notify(`Selected suggestion "${item.label}"`)
     },
     resetForm () {
       this.form = {
@@ -168,7 +159,7 @@ export default {
     //   console.log('a custom event was dispatched', payload)
     // })
   },
-  components: { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QSelect, QDatetime, QUploader }
+  components: { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QAutocomplete, QDatetime, QUploader }
 }
 </script>
 

@@ -9,6 +9,9 @@ import (
 	"math/rand"
 	"path/filepath"
 	"strings"
+	"reflect"
+	"mime/multipart"
+	"database/sql"
 
 	"gopkg.in/yaml.v2"
 
@@ -29,14 +32,17 @@ import (
 
 // Whitelist is whitelist table structure.
 type Whitelist struct {
-	Id int64 `gorm:"primary_key"`
-	Photo     Photo
-	PhotoId   int64     `gorm:"not null;unique"`
-	Name      string
-	Email     string    `gorm:"not null;unique"`
-	Birthday  string    `json:"birthday"`
-	Country   string    `json:"country"`
-	CreatedAt time.Time `xorm:"created"`
+	Id                     int64     `gorm:"primary_key"`
+	Passport               Photo
+	PassportId             int64     `gorm:"not null;unique"`
+	Selfie                 Photo
+	SelfieId               sql.NullInt64
+	Name                   string
+	Email                  string    `gorm:"not null;unique"`
+	Phone                  string
+	Birthday               string
+	Country                string
+	CreatedAt              time.Time `xorm:"created"`
 }
 
 // Photo is photo table structure.
@@ -70,6 +76,8 @@ var (
 	nameValidatorRegex = regexp.MustCompile("(?:(\\pL|[-])+((?:\\s)+)?)")
 	// YYYY-MM-DD // YYYY >= 1000 matches correct dates in months
 	dateValidatorRegex = regexp.MustCompile("^(?:[1-9]\\d{3}-(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|1\\d|2[0-9])|(?:0[13-9]|1[0-2])-(?:29|30)|(?:0[13578]|1[02])-31))$")
+	// phone number, simple
+	phoneNumberValidatorRegex = regexp.MustCompile("[0-9()\\pL\\s-+#]+")
 )
 
 func init() {
@@ -110,8 +118,15 @@ func routes(app *iris.Application, db *gorm.DB) {
 			Birthday: combineDatetime(ctx.FormValue("year"), ctx.FormValue("month"), ctx.FormValue("day")),
 		}
 
+		// Get the file from the request.
+		passportFile, passportInfo, passportErr := ctx.FormFile("passport")
+
 		if err := whitelist.Validate(); err != nil {
 			ctx.StatusCode(iris.StatusUnprocessableEntity)
+			errVal := reflect.ValueOf(err)
+			if passportErr != nil && errVal.Kind() == reflect.Map {
+				errVal.SetMapIndex(reflect.ValueOf("passport"), reflect.ValueOf("Add image of your passport"))
+			}
 			ctx.JSON(map[string]interface{}{"errors": err})
 			return
 		}
@@ -122,66 +137,51 @@ func routes(app *iris.Application, db *gorm.DB) {
 			return
 		}
 
-		// Get the file from the request.
-		file, info, err := ctx.FormFile("passport")
-
-		if err != nil {
-			ctx.StatusCode(iris.StatusUnprocessableEntity)
-			ctx.JSON(map[string]interface{}{"errors": map[string]string{"passport": "Add image of your passport"}})
-			return
-		}
-
-		defer file.Close()
-		ext := filepath.Ext(info.Filename)
-		ext = strings.ToLower(ext[1:]) // remove dot and cast to lower case
-		var (
-			filename string
-			imgPath  string
-		)
-
-		// generate a new name if file exists
-		for {
-			filename = RandString(48)
-			imgPath = filename[0:3] + "/" + filename[3:6]
-
-			// create path / bug with 0644
-			if err = os.MkdirAll("./uploads/"+imgPath, 0744); err != nil {
-				ctx.StatusCode(iris.StatusInternalServerError)
-				println("Can't create passport path: " + err.Error())
-				return
-			}
-
-			if _, err := os.Stat("./uploads/" + imgPath + "/" + filename + "." + ext); os.IsNotExist(err) {
-				break
-			}
-		}
-
-		// Create a file
-		out, err := os.OpenFile("./uploads/"+imgPath+"/"+filename+"."+ext,
-			os.O_WRONLY|os.O_CREATE, 0744)
-
+		filePath, fileExt, err := saveFile(passportFile, passportInfo)
 		if err != nil {
 			ctx.StatusCode(iris.StatusInternalServerError)
-			println("Can't save passport img: " + err.Error())
+			println("Can't save passport!\n\t" + err.Error())
 			return
 		}
-		defer out.Close()
-
-		io.Copy(out, file)
 
 		photo := &Photo{
-			Path:      imgPath + "/" + filename + "." + ext,
-			Extension: ext,
+			Path:      filePath,
+			Extension: fileExt,
 		}
 
 		db.NewRecord(photo)
 		if err := db.Create(photo).Error; err != nil {
 			ctx.StatusCode(iris.StatusInternalServerError)
-			println("Can't insert photo " + err.Error())
+			println("Can't insert passport in database " + err.Error())
 			return
 		}
 
-		whitelist.PhotoId = photo.ID
+		whitelist.PassportId = photo.ID
+
+		// Get selfie file from the request.
+		selfieFile, selfieInfo, selfieErr := ctx.FormFile("selfie")
+		if selfieErr == nil {
+			filePath, fileExt, err := saveFile(selfieFile, selfieInfo)
+			if err != nil {
+				ctx.StatusCode(iris.StatusInternalServerError)
+				println("Can't save selfie!\n\t" + err.Error())
+				return
+			}
+
+			selfie := &Photo{
+				Path:      filePath,
+				Extension: fileExt,
+			}
+
+			db.NewRecord(selfie)
+			if err := db.Create(selfie).Error; err != nil {
+				ctx.StatusCode(iris.StatusInternalServerError)
+				println("Can't insert selfie in database " + err.Error())
+				return
+			}
+
+			whitelist.SelfieId = sql.NullInt64{Int64: selfie.ID, Valid: true}
+		}
 
 		db.NewRecord(whitelist)
 		if err := db.Create(whitelist).Error; err != nil {
@@ -276,7 +276,46 @@ func (w Whitelist) Validate() error {
 	return validation.ValidateStruct(&w,
 		validation.Field(&w.Name, validation.Required, validation.Match(nameValidatorRegex)),
 		validation.Field(&w.Email, validation.Required, is.Email),
+		validation.Field(&w.Phone, validation.Match(phoneNumberValidatorRegex)),
 		validation.Field(&w.Birthday, validation.Required, validation.Match(dateValidatorRegex)),
 		validation.Field(&w.Country, validation.Required, validation.Match(nameValidatorRegex)),
 	)
+}
+
+func saveFile(file multipart.File, fileInfo *multipart.FileHeader) (path string, ext string, err error) {
+	defer file.Close()
+	ext = filepath.Ext(fileInfo.Filename)
+	ext = strings.ToLower(ext[1:]) // remove dot and cast to lower case
+	var (
+		filename string
+		imgPath  string
+	)
+
+	// generate a new name if file exists
+	for {
+		filename = RandString(48)
+		imgPath = filename[0:3] + "/" + filename[3:6]
+
+		// create path / bug with 0644
+		if err := os.MkdirAll("./uploads/"+imgPath, 0744); err != nil {
+			return "", "", error("Can't create image path: " + err.Error())
+		}
+
+		path = "./uploads/" + imgPath + "/" + filename + "." + ext
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			break
+		}
+	}
+
+	// Create a file
+	out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0744)
+
+	if err != nil {
+		return "", "", error("Can't save image: " + err.Error())
+	}
+	defer out.Close()
+
+	io.Copy(out, file)
+
+	return path, ext, nil
 }
