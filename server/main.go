@@ -165,11 +165,16 @@ func routes(app *iris.Application, db *gorm.DB) {
 	})
 
 	app.Post("/whitelist/request", func(ctx iris.Context) {
+		birthday := ctx.FormValue("birthday")
+		if birthday == "" {
+			birthday = combineDatetime(ctx.FormValue("year"), ctx.FormValue("month"), ctx.FormValue("day"))
+		}
+
 		whitelist := &Whitelist{
 			Name:     ctx.FormValue("name"),
 			Email:    ctx.FormValue("email"),
 			Country:  ctx.FormValue("country"),
-			Birthday: combineDatetime(ctx.FormValue("year"), ctx.FormValue("month"), ctx.FormValue("day")),
+			Birthday: birthday,
 		}
 
 		// Get the file from the request.
@@ -252,9 +257,18 @@ func routes(app *iris.Application, db *gorm.DB) {
 
 func sendEmail(to string, token string) {
 	emailData := ses.Email{
-		To:      to,
-		From:    config.NoReplyEmail,
-		Text:    "Your whitelist submission is well received.\n\nFor inquiries and support please contact support@mdl.life",
+		To:   to,
+		From: config.NoReplyEmail,
+		Text: "Your whitelist submission is well received.\n\n" +
+			"The instructions of how to purchase the MDL Tokens to be send soon is confirmation that you have passed the whitelist.\n\n" +
+			"To confirm your email please paste this line in your browser url address line:\n" +
+			"http://mdl.life/whitelist/confirm_email?token=" + token + "\n\n" +
+			"For inquiries and support please contact support@mdl.life",
+		HTML: "<h3 style=\"color:purple;\">Your whitelist submission is well received.</h3><br>" +
+			"The instructions of how to purchase the MDL Tokens to be send soon is confirmation that you have passed the whitelist.<br><br>" +
+			"To confirm your email please follow this link:<br>" +
+			"<a href=\"http://mdl.life/whitelist/confirm_email?token=" + token + "\">" + "http://mdl.life/whitelist/confirm_email?token=" + token + "</a><br><br>" +
+			"For inquiries and support please contact <a mailto=\"support@mdl.life\">support@mdl.life</a>",
 		Subject: "MDL Talent Hub: Whitelist application received",
 		ReplyTo: config.ReplyEmail,
 	}
