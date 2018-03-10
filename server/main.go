@@ -125,7 +125,7 @@ func main() {
 	app := iris.New()
 
 	// load templates
-	app.RegisterView(iris.HTML("./server/templates", ".html").Reload(true))
+	app.RegisterView(iris.HTML("./templates", ".html").Reload(true))
 
 	db, err := xorm.NewEngine(config.DatabaseDriver, config.DatabaseDSN)
 
@@ -178,7 +178,7 @@ func routes(app *iris.Application, db *xorm.Engine) {
 		}
 
 		ctx.ViewData("email", whitelist.Email)
-		ctx.View("email_confirmed.html")
+		ctx.View("email-confirmed.html")
 	})
 
 	app.Post("/whitelist/request", func(ctx iris.Context) {
