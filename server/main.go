@@ -32,7 +32,7 @@ import (
 */
 
 // VerificationStage Type enumeration
-type VerificationStage uint8
+type VerificationStage int64
 
 const (
 	EMAIL_NOT_VERIFIED VerificationStage = iota
@@ -40,24 +40,23 @@ const (
 	FIRST_STAGE
 )
 
-func (u *VerificationStage) Scan(value interface{}) error { *u = VerificationStage(value.(uint8)); return nil }
-func (u VerificationStage) Value() (driver.Value, error)  { return uint8(u), nil }
+func (u *VerificationStage) Scan(value interface{}) error { *u = VerificationStage(value.(int64)); return nil }
+func (u VerificationStage) Value() (driver.Value, error)  { return int64(u), nil }
 
 // Whitelist is whitelist table structure.
 type Whitelist struct {
-	Id                     int64             `gorm:"primary_key"`
-	Passport               Photo
-	PassportId             int64             `gorm:"not null; unique"`
-	Selfie                 Photo
-	SelfieId               sql.NullInt64
-	Name                   string
-	Email                  string            `gorm:"not null; unique"`
-	Phone                  string
-	Birthday               string
-	Country                string
-	VerificationStage      VerificationStage `gorm:"not null; default:0"`
-	EmailVerificationToken string
-	CreatedAt              time.Time
+	Id                int64             `gorm:"primary_key"`
+	Passport          Photo
+	PassportId        int64             `gorm:"not null; unique"`
+	Selfie            Photo
+	SelfieId          sql.NullInt64
+	Name              string
+	Email             string            `gorm:"not null; unique"`
+	Phone             string
+	Birthday          string
+	Country           string
+	VerificationStage VerificationStage `gorm:"not null; default:0"`
+	CreatedAt         time.Time
 }
 
 // Photo is photo table structure.
@@ -137,7 +136,7 @@ func main() {
 func routes(app *iris.Application, db *gorm.DB) {
 
 	app.Get("/whitelist/confirm_email", func(ctx iris.Context) {
-		token := ctx.Params().GetTrim("token")
+		token := ctx.FormValue("token")
 
 		if !tokenRegex.MatchString(token) {
 			ctx.HTML("Invalid token data")
@@ -193,7 +192,7 @@ func routes(app *iris.Application, db *gorm.DB) {
 			return
 		} else {
 			if passportErr != nil {
-				ctx.JSON(map[string]interface{}{"errors": map[string]string {"passport": "Add image of your passport"}})
+				ctx.JSON(map[string]interface{}{"errors": map[string]string{"passport": "Add image of your passport"}})
 				return
 			}
 		}
@@ -391,8 +390,9 @@ func (w *Whitelist) StoreData(db *gorm.DB) (emailToken string, err error) {
 	}
 
 	wt := &WhitelistToken{
-		Token:     token,
-		ExpiredAt: time.Now().AddDate(0, 0, 7),
+		WhitelistId: w.Id,
+		Token:       token,
+		ExpiredAt:   time.Now().AddDate(0, 0, 7),
 	}
 
 	db.NewRecord(wt)
@@ -405,10 +405,10 @@ func (w *Whitelist) StoreData(db *gorm.DB) (emailToken string, err error) {
 		return "", err
 	}
 
-	return token,nil
+	return token, nil
 }
 
-func (wt *WhitelistToken) TokenConfirmed(db * gorm.DB) (w *Whitelist, err error) {
+func (wt *WhitelistToken) TokenConfirmed(db *gorm.DB) (w *Whitelist, err error) {
 	tx := db.Begin()
 	if err = tx.Error; err != nil {
 		return nil, err
@@ -435,5 +435,5 @@ func (wt *WhitelistToken) TokenConfirmed(db * gorm.DB) (w *Whitelist, err error)
 		return nil, err
 	}
 
-	return w,nil
+	return w, nil
 }
