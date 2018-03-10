@@ -4,6 +4,7 @@ import (
 	"os"
 	"io"
 	"io/ioutil"
+	"fmt"
 	"time"
 	"regexp"
 	"path/filepath"
@@ -21,10 +22,9 @@ import (
 	"github.com/go-ozzo/ozzo-validation"
 	"github.com/go-ozzo/ozzo-validation/is"
 
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
-	"database/sql/driver"
+	"github.com/go-xorm/xorm"
 	"github.com/lib/pq"
+	"database/sql/driver"
 )
 
 /*
@@ -32,7 +32,7 @@ import (
 */
 
 // VerificationStage Type enumeration
-type VerificationStage int64
+type VerificationStage uint8
 
 const (
 	EMAIL_NOT_VERIFIED VerificationStage = iota
@@ -40,40 +40,49 @@ const (
 	FIRST_STAGE
 )
 
-func (u *VerificationStage) Scan(value interface{}) error { *u = VerificationStage(value.(int64)); return nil }
-func (u VerificationStage) Value() (driver.Value, error)  { return int64(u), nil }
+func (u *VerificationStage) Scan(value interface{}) error { *u = VerificationStage(value.(uint8)); return nil }
+func (u VerificationStage) Value() (driver.Value, error)  { return uint8(u), nil }
 
 // Whitelist is whitelist table structure.
 type Whitelist struct {
-	Id                int64             `gorm:"primary_key"`
-//	Passport          Photo
-	PassportId        int64             `gorm:"not null; unique"`
-	Selfie            Photo
+	Id                int64
+	PassportId        int64             `xorm:"not null unique"`
 	SelfieId          sql.NullInt64
-	Name              string
-	Email             string            `gorm:"not null; unique"`
-	Phone             string
-	Birthday          string
-	Country           string
-	VerificationStage VerificationStage `gorm:"not null; default:0"`
+	Name              string            `xorm:"varchar(255) not null"`
+	Email             string            `xorm:"varchar(255) not null unique"`
+	Phone             string            `xorm:"varchar(255) not null"`
+	Birthday          string            `xorm:"varchar(255) not null"`
+	Country           string            `xorm:"varchar(255) not null"`
+	VerificationStage VerificationStage `xorm:"not null default 0"`
 	CreatedAt         time.Time
+}
+
+func (w *Whitelist) TableName() string {
+	return "whitelists"
 }
 
 // Photo is photo table structure.
 type Photo struct {
 	Id        int64
-	Path      string `gorm:"not null; unique"`
-	Extension string `gorm:"varchar(5); not null"`
+	Path      string `xorm:"varchar(255) not null unique"`
+	Extension string `xorm:"varchar(5) not null"`
 	CreatedAt time.Time
 }
 
+func (p *Photo) TableName() string {
+	return "photos"
+}
+
 type WhitelistToken struct {
-//	Whitelist   Whitelist
 	WhitelistId int64
-	Token       string `gorm:"not null; unique"`
-	CreatedAt   time.Time
+	Token       string    `xorm:"varchar(128) not null pk"`
+	CreatedAt   time.Time `xorm:"created"`
 	ExpiredAt   time.Time
 	UsedAt      pq.NullTime
+}
+
+func (wt *WhitelistToken) TableName() string {
+	return "whitelist_tokens"
 }
 
 // Config file structure
@@ -118,17 +127,19 @@ func main() {
 	// load templates
 	app.RegisterView(iris.HTML("./server/templates", ".html").Reload(true))
 
-	db, err := gorm.Open(config.DatabaseDriver, config.DatabaseDSN)
-	db.LogMode(true)
+	db, err := xorm.NewEngine(config.DatabaseDriver, config.DatabaseDSN)
+
 	if err != nil {
 		app.Logger().Fatalf("db failed to initialized: %v", err)
 	}
+
+	db.ShowSQL(true) // Show SQL statement on standard output;
 
 	iris.RegisterOnInterrupt(func() {
 		db.Close()
 	})
 
-	db.AutoMigrate(&Whitelist{}, &Photo{}, &WhitelistToken{})
+	db.Sync2(new(Whitelist), new(Photo), new(WhitelistToken))
 
 	routes(app, db)
 
@@ -137,7 +148,7 @@ func main() {
 		iris.WithPostMaxMemory(config.MaxFileUploadSizeMb<<20))
 }
 
-func routes(app *iris.Application, db *gorm.DB) {
+func routes(app *iris.Application, db *xorm.Engine) {
 
 	app.Get("/whitelist/confirm_email", func(ctx iris.Context) {
 		token := ctx.FormValue("token")
@@ -148,16 +159,15 @@ func routes(app *iris.Application, db *gorm.DB) {
 		}
 
 		whitelistToken := &WhitelistToken{}
-		db = db.New().Where("token = ? AND used_at IS NULL AND expired_at > ?", token, time.Now()).First(whitelistToken)
-		if db.RecordNotFound() {
+		has, err := db.Where("token = ? AND used_at IS NULL AND expired_at > ?", token, time.Now()).Get(whitelistToken)
+		if err != nil {
+			ctx.StatusCode(iris.StatusInternalServerError)
+			println("Token database search error. " + err.Error())
+			return
+		}
+		if !has {
 			ctx.HTML("Token not found or expired")
 			return
-		} else {
-			if db.Error != nil {
-				ctx.StatusCode(iris.StatusInternalServerError)
-				println("Token database search error. " + db.Error.Error())
-				return
-			}
 		}
 
 		whitelist, err := whitelistToken.TokenConfirmed(db)
@@ -202,7 +212,13 @@ func routes(app *iris.Application, db *gorm.DB) {
 			}
 		}
 
-		if !db.New().Where("email = ?", whitelist.Email).First(&Whitelist{}).RecordNotFound() {
+		has, err := db.Where("email = ?", whitelist.Email).Exist(&Whitelist{})
+		if err != nil {
+			ctx.StatusCode(iris.StatusInternalServerError)
+			println("Can't find whitelist record in database.\n\t" + err.Error())
+			return
+		}
+		if has {
 			ctx.StatusCode(iris.StatusUnprocessableEntity)
 			ctx.JSON(map[string]interface{}{"errors": map[string]string{"email": "This email already registered."}})
 			return
@@ -220,8 +236,7 @@ func routes(app *iris.Application, db *gorm.DB) {
 			Extension: fileExt,
 		}
 
-		db.NewRecord(photo)
-		if err := db.Create(photo).Error; err != nil {
+		if _, err := db.InsertOne(photo); err != nil {
 			ctx.StatusCode(iris.StatusInternalServerError)
 			println("Can't insert passport in database " + err.Error())
 			return
@@ -244,8 +259,7 @@ func routes(app *iris.Application, db *gorm.DB) {
 				Extension: fileExt,
 			}
 
-			db.NewRecord(selfie)
-			if err := db.Create(selfie).Error; err != nil {
+			if _, err := db.InsertOne(selfie); err != nil {
 				ctx.StatusCode(iris.StatusInternalServerError)
 				println("Can't insert selfie in database " + err.Error())
 				return
@@ -373,15 +387,15 @@ func saveFile(file multipart.File, fileInfo *multipart.FileHeader) (path string,
 	return path, ext, nil
 }
 
-func (w *Whitelist) StoreData(db *gorm.DB) (emailToken string, err error) {
-	tx := db.Begin()
-	if err = tx.Error; err != nil {
+func (w *Whitelist) StoreData(db *xorm.Engine) (emailToken string, err error) {
+	tx := db.NewSession()
+	defer tx.Close()
+
+	if err = tx.Begin(); err != nil {
 		return "", err
 	}
 
-	tx.NewRecord(w)
-	if err = tx.Create(w).Error; err != nil {
-		tx.Rollback()
+	if _, err = tx.InsertOne(w); err != nil {
 		return "", err
 	}
 
@@ -389,7 +403,11 @@ func (w *Whitelist) StoreData(db *gorm.DB) (emailToken string, err error) {
 	// regenerate if not unique
 	for {
 		token = SecureRandomString(35)
-		if tx.Where("whitelist_id = ? AND token = ?", w.Id, token).First(&WhitelistToken{}).RecordNotFound() {
+		has, err := tx.Where("whitelist_id = ? AND token = ?", w.Id, token).Exist(&WhitelistToken{})
+		if err != nil {
+			return "", err
+		}
+		if !has {
 			break
 		}
 	}
@@ -400,44 +418,39 @@ func (w *Whitelist) StoreData(db *gorm.DB) (emailToken string, err error) {
 		ExpiredAt:   time.Now().AddDate(0, 0, 7),
 	}
 
-	tx.NewRecord(wt)
-	if err = tx.Create(wt).Error; err != nil {
-		tx.Rollback()
+	if _, err = tx.InsertOne(wt); err != nil {
 		return "", err
 	}
 
-	if err = tx.Commit().Error; err != nil {
-		return "", err
-	}
-
-	return token, nil
+	return token, tx.Commit()
 }
 
-func (wt *WhitelistToken) TokenConfirmed(db *gorm.DB) (w *Whitelist, err error) {
-	tx := db.Begin()
-	if err = tx.Error; err != nil {
+func (wt *WhitelistToken) TokenConfirmed(db *xorm.Engine) (w *Whitelist, err error) {
+	tx := db.NewSession()
+	defer tx.Close()
+
+	if err = tx.Begin(); err != nil {
 		return nil, err
 	}
 
-	if err = tx.Model(wt).UpdateColumn("used_at", pq.NullTime{Time: time.Now(), Valid: true}).Error; err != nil {
-		tx.Rollback()
+	wt.UsedAt = pq.NullTime{Time: time.Now(), Valid: true}
+	if _, err = tx.ID(wt.Token).Cols("used_at").Update(wt); err != nil {
 		return nil, err
 	}
 
-	whitelist := &Whitelist{}
-	if err = tx.New().First(whitelist, wt.WhitelistId).Error; err != nil {
-		tx.Rollback()
+	w = &Whitelist{}
+	has, err := tx.ID(wt.WhitelistId).Get(w)
+	if !has {
+		return nil, NewError(fmt.Sprintf("Can't find whitelist with id: %v", wt.WhitelistId))
+	}
+	if err != nil {
 		return nil, err
 	}
 
-	if err = tx.New().Model(whitelist).UpdateColumn("verification_stage", EMAIL_VERIFIED).Error; err != nil {
-		tx.Rollback()
+	w.VerificationStage = EMAIL_VERIFIED
+	if _, err = tx.ID(w.Id).Cols("verification_stage").Update(w); err != nil {
 		return nil, err
 	}
 
-	if err = tx.Commit().Error; err != nil {
-		return nil, err
-	}
-
-	return w, nil
+	return w, tx.Commit()
 }
