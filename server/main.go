@@ -46,7 +46,7 @@ func (u VerificationStage) Value() (driver.Value, error)  { return int64(u), nil
 // Whitelist is whitelist table structure.
 type Whitelist struct {
 	Id                int64             `gorm:"primary_key"`
-	Passport          Photo
+//	Passport          Photo
 	PassportId        int64             `gorm:"not null; unique"`
 	Selfie            Photo
 	SelfieId          sql.NullInt64
@@ -68,7 +68,7 @@ type Photo struct {
 }
 
 type WhitelistToken struct {
-	Whitelist   Whitelist
+//	Whitelist   Whitelist
 	WhitelistId int64
 	Token       string `gorm:"not null; unique"`
 	CreatedAt   time.Time
@@ -115,7 +115,11 @@ func init() {
 func main() {
 	app := iris.New()
 
+	// load templates
+	app.RegisterView(iris.HTML("./server/templates", ".html").Reload(true))
+
 	db, err := gorm.Open(config.DatabaseDriver, config.DatabaseDSN)
+	db.LogMode(true)
 	if err != nil {
 		app.Logger().Fatalf("db failed to initialized: %v", err)
 	}
@@ -144,14 +148,14 @@ func routes(app *iris.Application, db *gorm.DB) {
 		}
 
 		whitelistToken := &WhitelistToken{}
-		db = db.Where("token = ? AND used_at IS NULL AND expired_at < ?", token, time.Now()).First(whitelistToken)
+		db = db.New().Where("token = ? AND used_at IS NULL AND expired_at > ?", token, time.Now()).First(whitelistToken)
 		if db.RecordNotFound() {
 			ctx.HTML("Token not found or expired")
 			return
 		} else {
 			if db.Error != nil {
 				ctx.StatusCode(iris.StatusInternalServerError)
-				println("Token database search error")
+				println("Token database search error. " + db.Error.Error())
 				return
 			}
 		}
@@ -159,11 +163,12 @@ func routes(app *iris.Application, db *gorm.DB) {
 		whitelist, err := whitelistToken.TokenConfirmed(db)
 		if err != nil {
 			ctx.StatusCode(iris.StatusInternalServerError)
-			println("Can't confirm token in database")
+			println("Can't confirm token in database. " + err.Error())
 			return
 		}
 
-		ctx.HTML("Your email " + whitelist.Email + " has confirmed")
+		ctx.ViewData("email", whitelist.Email)
+		ctx.View("email_confirmed.html")
 	})
 
 	app.Post("/whitelist/request", func(ctx iris.Context) {
@@ -197,7 +202,7 @@ func routes(app *iris.Application, db *gorm.DB) {
 			}
 		}
 
-		if !db.Where("email = ?", whitelist.Email).First(&Whitelist{}).RecordNotFound() {
+		if !db.New().Where("email = ?", whitelist.Email).First(&Whitelist{}).RecordNotFound() {
 			ctx.StatusCode(iris.StatusUnprocessableEntity)
 			ctx.JSON(map[string]interface{}{"errors": map[string]string{"email": "This email already registered."}})
 			return
@@ -374,8 +379,8 @@ func (w *Whitelist) StoreData(db *gorm.DB) (emailToken string, err error) {
 		return "", err
 	}
 
-	db.NewRecord(w)
-	if err = db.Create(w).Error; err != nil {
+	tx.NewRecord(w)
+	if err = tx.Create(w).Error; err != nil {
 		tx.Rollback()
 		return "", err
 	}
@@ -384,7 +389,7 @@ func (w *Whitelist) StoreData(db *gorm.DB) (emailToken string, err error) {
 	// regenerate if not unique
 	for {
 		token = SecureRandomString(35)
-		if db.Where("whitelist_id = ? AND token = ?", w.Id, token).First(&WhitelistToken{}).RecordNotFound() {
+		if tx.Where("whitelist_id = ? AND token = ?", w.Id, token).First(&WhitelistToken{}).RecordNotFound() {
 			break
 		}
 	}
@@ -395,8 +400,8 @@ func (w *Whitelist) StoreData(db *gorm.DB) (emailToken string, err error) {
 		ExpiredAt:   time.Now().AddDate(0, 0, 7),
 	}
 
-	db.NewRecord(wt)
-	if err = db.Create(wt).Error; err != nil {
+	tx.NewRecord(wt)
+	if err = tx.Create(wt).Error; err != nil {
 		tx.Rollback()
 		return "", err
 	}
@@ -414,19 +419,18 @@ func (wt *WhitelistToken) TokenConfirmed(db *gorm.DB) (w *Whitelist, err error) 
 		return nil, err
 	}
 
-	if err = db.Model(wt).Update("used_at", time.Now()).Error; err != nil {
+	if err = tx.Model(wt).UpdateColumn("used_at", pq.NullTime{Time: time.Now(), Valid: true}).Error; err != nil {
 		tx.Rollback()
 		return nil, err
 	}
 
 	whitelist := &Whitelist{}
-	if err = db.First(whitelist, wt.WhitelistId).Error; err != nil {
+	if err = tx.New().First(whitelist, wt.WhitelistId).Error; err != nil {
 		tx.Rollback()
 		return nil, err
 	}
 
-	whitelist.VerificationStage = EMAIL_VERIFIED
-	if err = db.Save(whitelist).Error; err != nil {
+	if err = tx.New().Model(whitelist).UpdateColumn("verification_stage", EMAIL_VERIFIED).Error; err != nil {
 		tx.Rollback()
 		return nil, err
 	}
