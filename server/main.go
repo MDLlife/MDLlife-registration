@@ -144,22 +144,25 @@ func routes(app *iris.Application, db *gorm.DB) {
 			return
 		}
 
-		// todo check errors
 		whitelistToken := &WhitelistToken{}
-		if db.Where("token = ? AND used_at IS NULL", token).First(whitelistToken).Error != nil {
-			ctx.StatusCode(iris.StatusInternalServerError)
-			println("Token db search error")
+		db = db.Where("token = ? AND used_at IS NULL AND expired_at < ?", token, time.Now()).First(whitelistToken)
+		if db.RecordNotFound() {
+			ctx.HTML("Token not found or expired")
 			return
+		} else {
+			if db.Error != nil {
+				ctx.StatusCode(iris.StatusInternalServerError)
+				println("Token database search error")
+				return
+			}
 		}
 
-		whitelistToken.UsedAt = pq.NullTime{Time: time.Now(), Valid: true}
-		db.Update(whitelistToken)
-
-		whitelist := &Whitelist{}
-		db.First(whitelist, whitelistToken.WhitelistId)
-
-		whitelist.VerificationStage = EMAIL_VERIFIED
-		db.Update(whitelist)
+		whitelist, err := whitelistToken.TokenConfirmed(db)
+		if err != nil {
+			ctx.StatusCode(iris.StatusInternalServerError)
+			println("Can't confirm token in database")
+			return
+		}
 
 		ctx.HTML("Your email " + whitelist.Email + " has confirmed")
 	})
@@ -402,5 +405,35 @@ func (w *Whitelist) StoreData(db *gorm.DB) (emailToken string, err error) {
 		return "", err
 	}
 
-	return token, nil
+	return token,nil
+}
+
+func (wt *WhitelistToken) TokenConfirmed(db * gorm.DB) (w *Whitelist, err error) {
+	tx := db.Begin()
+	if err = tx.Error; err != nil {
+		return nil, err
+	}
+
+	if err = db.Model(wt).Update("used_at", time.Now()).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	whitelist := &Whitelist{}
+	if err = db.First(whitelist, wt.WhitelistId).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	whitelist.VerificationStage = EMAIL_VERIFIED
+	if err = db.Save(whitelist).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	return w,nil
 }
