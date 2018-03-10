@@ -8,6 +8,6 @@ func (e *Error) Error() string {
 	return e.str
 }
 
-func error(str string) *Error {
+func NewError(str string) *Error {
 	return &Error{str}
 }

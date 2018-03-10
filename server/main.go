@@ -339,7 +339,7 @@ func saveFile(file multipart.File, fileInfo *multipart.FileHeader) (path string,
 
 		// create path / bug with 0644
 		if err := os.MkdirAll("./uploads/"+imgPath, 0744); err != nil {
-			return "", "", error("Can't create image path: " + err.Error())
+			return "", "", NewError("Can't create image path: " + err.Error())
 		}
 
 		path = "./uploads/" + imgPath + "/" + filename + "." + ext
@@ -352,7 +352,7 @@ func saveFile(file multipart.File, fileInfo *multipart.FileHeader) (path string,
 	out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0744)
 
 	if err != nil {
-		return "", "", error("Can't save image: " + err.Error())
+		return "", "", NewError("Can't save image: " + err.Error())
 	}
 	defer out.Close()
 
