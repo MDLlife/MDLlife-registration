@@ -54,7 +54,7 @@ type Whitelist struct {
 	Birthday          string            `xorm:"varchar(255) not null"`
 	Country           string            `xorm:"varchar(255) not null"`
 	VerificationStage VerificationStage `xorm:"not null default 0"`
-	CreatedAt         time.Time
+	CreatedAt         time.Time         `xorm:"created"`
 }
 
 func (w *Whitelist) TableName() string {
@@ -64,9 +64,9 @@ func (w *Whitelist) TableName() string {
 // Photo is photo table structure.
 type Photo struct {
 	Id        int64
-	Path      string `xorm:"varchar(255) not null unique"`
-	Extension string `xorm:"varchar(5) not null"`
-	CreatedAt time.Time
+	Path      string    `xorm:"varchar(255) not null unique"`
+	Extension string    `xorm:"varchar(5) not null"`
+	CreatedAt time.Time `xorm:"created"`
 }
 
 func (p *Photo) TableName() string {
