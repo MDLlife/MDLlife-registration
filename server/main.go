@@ -131,7 +131,7 @@ func main() {
 	app := iris.New()
 
 	// load templates
-	app.RegisterView(iris.HTML("./templates", ".html").Reload(true))
+	app.RegisterView(iris.HTML("./templates", ".html").Reload(!config.Debug))
 
 	db, err := xorm.NewEngine(config.DatabaseDriver, config.DatabaseDSN)
 
