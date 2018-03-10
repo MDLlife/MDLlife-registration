@@ -18,7 +18,6 @@ import (
 	"github.com/kataras/iris"
 
 	"./ses"
-	"./recaptcha"
 
 	"github.com/go-ozzo/ozzo-validation"
 	"github.com/go-ozzo/ozzo-validation/is"
@@ -26,6 +25,10 @@ import (
 	"github.com/go-xorm/xorm"
 	"github.com/lib/pq"
 	"database/sql/driver"
+
+	"github.com/dchest/captcha"
+	"path"
+	"bytes"
 )
 
 /*
@@ -122,9 +125,6 @@ func init() {
 
 	// Amazon SES setup
 	ses.SetConfiguration(config.AwsKey, config.AwsSecret, config.AwsRegion)
-
-	// reCaptcha setup
-	recaptcha.Init(config.ReCaptchaSecret)
 }
 
 func main() {
@@ -155,6 +155,48 @@ func main() {
 }
 
 func routes(app *iris.Application, db *xorm.Engine) {
+	captchaRoute := app.Party("/captcha")
+	captchaRoute.Get("/id", func(ctx iris.Context) {
+		ctx.Text(captcha.New())
+	})
+	captchaRoute.Get("/{captcha}", func(ctx iris.Context) {
+		dir, file := path.Split(ctx.Params().Get("captcha"))
+		ext := path.Ext(file)
+		id := file[:len(file)-len(ext)]
+		if ext == "" || id == "" {
+			ctx.StatusCode(iris.StatusNotFound)
+			return
+		}
+		if ctx.FormValue("reload") != "" {
+			captcha.Reload(id)
+		}
+		lang := strings.ToLower(ctx.FormValue("lang"))
+		download := path.Base(dir) == "download"
+
+		// send bytes buffer instead file
+		ctx.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+		ctx.Header("Pragma", "no-cache")
+		ctx.Header("Expires", "0")
+
+		var content bytes.Buffer
+		switch ext {
+		case ".png":
+			ctx.Header("Content-Type", "image/png")
+			captcha.WriteImage(&content, id, captcha.StdWidth, captcha.StdHeight)
+		case ".wav":
+			ctx.Header("Content-Type", "audio/x-wav")
+			captcha.WriteAudio(&content, id, lang)
+		default:
+			ctx.StatusCode(iris.StatusNotFound)
+			return
+		}
+
+		if download {
+			ctx.Header("Content-Type", "application/octet-stream")
+		}
+
+		ctx.ServeContent(bytes.NewReader(content.Bytes()), id+ext, time.Time{}, true)
+	})
 
 	app.Get("/whitelist/confirm_email", func(ctx iris.Context) {
 		token := ctx.FormValue("token")
@@ -202,7 +244,6 @@ func routes(app *iris.Application, db *xorm.Engine) {
 
 		// Get the file from the request.
 		passportFile, passportInfo, passportErr := ctx.FormFile("passport")
-		reCaptchaOk := recaptcha.Confirm(ctx)
 
 		var errs = validation.Errors{}
 
@@ -214,8 +255,8 @@ func routes(app *iris.Application, db *xorm.Engine) {
 		if passportErr != nil {
 			errs["passport"] = errors.New("Add image of your passport")
 		}
-		if !reCaptchaOk {
-			errs[recaptcha.ResponseFormValue] = errors.New("reCaptcha check has failed")
+		if !captcha.VerifyString(ctx.FormValue("captchaId"), ctx.FormValue("captchaSolution")) {
+			errs["captchaSolution"] = errors.New("Captcha check has failed")
 		}
 
 		if len(errs) > 0 {
