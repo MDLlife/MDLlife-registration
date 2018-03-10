@@ -8,6 +8,8 @@ DatabaseDSN: ./database.db
 NoReplyEmail: string
 ReplyEmail: string
 
+ReCaptchaSecret: string
+
 MaxFileUploadSizeMb: 10
 
 Port: :8081

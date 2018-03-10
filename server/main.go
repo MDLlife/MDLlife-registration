@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 	"regexp"
+	"errors"
 	"path/filepath"
 	"strings"
-	"reflect"
 	"mime/multipart"
 	"database/sql"
 
@@ -18,6 +18,7 @@ import (
 	"github.com/kataras/iris"
 
 	"./ses"
+	"./recaptcha"
 
 	"github.com/go-ozzo/ozzo-validation"
 	"github.com/go-ozzo/ozzo-validation/is"
@@ -97,6 +98,8 @@ type Config struct {
 	DatabaseDriver string `yaml:"DatabaseDriver"`
 	DatabaseDSN    string `yaml:"DatabaseDSN"`
 
+	ReCaptchaSecret string `yaml:"ReCaptchaSecret"`
+
 	MaxFileUploadSizeMb int64 `yaml:"MaxFileUploadSizeMb"`
 
 	Port string `yaml:"Port"`
@@ -119,6 +122,9 @@ func init() {
 
 	// Amazon SES setup
 	ses.SetConfiguration(config.AwsKey, config.AwsSecret, config.AwsRegion)
+
+	// reCaptcha setup
+	recaptcha.Init(config.ReCaptchaSecret)
 }
 
 func main() {
@@ -196,20 +202,26 @@ func routes(app *iris.Application, db *xorm.Engine) {
 
 		// Get the file from the request.
 		passportFile, passportInfo, passportErr := ctx.FormFile("passport")
+		reCaptchaOk := recaptcha.Confirm(ctx)
 
-		if err := whitelist.Validate(); err != nil {
+		var errs = validation.Errors{}
+
+		if e, ok := whitelist.Validate().(validation.Errors); ok {
+			for name, value := range e {
+				errs[name] = value
+			}
+		}
+		if passportErr != nil {
+			errs["passport"] = errors.New("Add image of your passport")
+		}
+		if !reCaptchaOk {
+			errs[recaptcha.ResponseFormValue] = errors.New("reCaptcha check has failed")
+		}
+
+		if len(errs) > 0 {
 			ctx.StatusCode(iris.StatusUnprocessableEntity)
-			errVal := reflect.ValueOf(err)
-			if passportErr != nil && errVal.Kind() == reflect.Map {
-				errVal.SetMapIndex(reflect.ValueOf("passport"), reflect.ValueOf("Add image of your passport"))
-			}
-			ctx.JSON(map[string]interface{}{"errors": err})
+			ctx.JSON(map[string]interface{}{"errors": errs})
 			return
-		} else {
-			if passportErr != nil {
-				ctx.JSON(map[string]interface{}{"errors": map[string]string{"passport": "Add image of your passport"}})
-				return
-			}
 		}
 
 		has, err := db.Where("email = ?", whitelist.Email).Exist(&Whitelist{})
@@ -365,7 +377,7 @@ func saveFile(file multipart.File, fileInfo *multipart.FileHeader) (path string,
 
 		// create path / bug with 0644
 		if err := os.MkdirAll("./uploads/"+imgPath, 0744); err != nil {
-			return "", "", NewError("Can't create image path: " + err.Error())
+			return "", "", errors.New("Can't create image path: " + err.Error())
 		}
 
 		path = "./uploads/" + imgPath + "/" + filename + "." + ext
@@ -378,7 +390,7 @@ func saveFile(file multipart.File, fileInfo *multipart.FileHeader) (path string,
 	out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0744)
 
 	if err != nil {
-		return "", "", NewError("Can't save image: " + err.Error())
+		return "", "", errors.New("Can't save image: " + err.Error())
 	}
 	defer out.Close()
 
@@ -441,7 +453,7 @@ func (wt *WhitelistToken) TokenConfirmed(db *xorm.Engine) (w *Whitelist, err err
 	w = &Whitelist{}
 	has, err := tx.ID(wt.WhitelistId).Get(w)
 	if !has {
-		return nil, NewError(fmt.Sprintf("Can't find whitelist with id: %v", wt.WhitelistId))
+		return nil, errors.New(fmt.Sprintf("Can't find whitelist with id: %v", wt.WhitelistId))
 	}
 	if err != nil {
 		return nil, err
