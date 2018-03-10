@@ -91,6 +91,8 @@ func (wt *WhitelistToken) TableName() string {
 
 // Config file structure
 type Config struct {
+	Debug bool `yaml:"Debug"`
+
 	AwsKey    string `yaml:"AwsKey"`
 	AwsSecret string `yaml:"AwsSecret"`
 	AwsRegion string `yaml:"AwsRegion"`
@@ -100,8 +102,6 @@ type Config struct {
 
 	DatabaseDriver string `yaml:"DatabaseDriver"`
 	DatabaseDSN    string `yaml:"DatabaseDSN"`
-
-	ReCaptchaSecret string `yaml:"ReCaptchaSecret"`
 
 	MaxFileUploadSizeMb int64 `yaml:"MaxFileUploadSizeMb"`
 
@@ -139,7 +139,7 @@ func main() {
 		app.Logger().Fatalf("db failed to initialized: %v", err)
 	}
 
-	db.ShowSQL(true) // Show SQL statement on standard output;
+	db.ShowSQL(config.Debug) // Show SQL statement on standard output;
 
 	iris.RegisterOnInterrupt(func() {
 		db.Close()

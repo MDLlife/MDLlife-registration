@@ -1,3 +1,5 @@
+Debug: bool
+
 AwsKey: string
 AwsSecret: string
 AwsRegion: string
