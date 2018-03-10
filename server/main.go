@@ -188,6 +188,11 @@ func routes(app *iris.Application, db *gorm.DB) {
 			}
 			ctx.JSON(map[string]interface{}{"errors": err})
 			return
+		} else {
+			if passportErr != nil {
+				ctx.JSON(map[string]interface{}{"errors": map[string]string {"passport": "Add image of your passport"}})
+				return
+			}
 		}
 
 		if !db.Where("email = ?", whitelist.Email).First(&Whitelist{}).RecordNotFound() {
