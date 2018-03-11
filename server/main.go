@@ -229,7 +229,7 @@ func routes(app *iris.Application, db *xorm.Engine) {
 		ctx.View("email-confirmed.html")
 	})
 
-	app.Post("/whitelist/request", func(ctx iris.Context) {
+	app.Post("/whitelist/request", iris.LimitRequestBodySize(config.MaxFileUploadSizeMb<<20), func(ctx iris.Context) {
 		birthday := ctx.FormValue("birthday")
 		if birthday == "" {
 			birthday = combineDatetime(ctx.FormValue("year"), ctx.FormValue("month"), ctx.FormValue("day"))
@@ -253,8 +253,11 @@ func routes(app *iris.Application, db *xorm.Engine) {
 			}
 		}
 		if passportErr != nil {
-			errs["passport"] = errors.New("Add image of your passport")
-		}
+			errs["passport"] = errors.New(fmt.Sprintf("Filesize is very large. Allowed up to %v Mb", config.MaxFileUploadSizeMb))
+		} else
+			if passportInfo.Filename == "" {
+				errs["passport"] = errors.New("Add a file of your passport")
+			}
 		if !captcha.VerifyString(ctx.FormValue("captchaId"), ctx.FormValue("captchaSolution")) {
 			errs["captchaSolution"] = errors.New("Captcha check has failed")
 		}
