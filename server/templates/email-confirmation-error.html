@@ -40,9 +40,13 @@
         background: -ms-linear-gradient(to top, #cc208e 0%, #6713d2 100%);
         background: linear-gradient(to top, #cc208e 0%, #6713d2 100%);
     }
+    .error {
+        color:red;
+    }
 </style>
 <body>
-<p>Your email {{.email}} has been confirmed and whitelist process is initiated now. <br> Please be patient and wait for the notification letter.</p>
+<p class="error">{{.message}}</p>
+<p>For inquiries and support please contact <a href="mailto:support@mdl.life">support@mdl.life</a></p>
 <a class="link-to-mdl" href="https://mdl.life/">MDL <span>Talent Hub</span></a>
 </body>
 </html>

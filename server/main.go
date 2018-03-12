@@ -59,6 +59,7 @@ type Whitelist struct {
 	Country           string            `xorm:"varchar(255) not null"`
 	VerificationStage VerificationStage `xorm:"not null default 0"`
 	CreatedAt         time.Time         `xorm:"created"`
+	UpdatedAt         time.Time         `xorm:"updated"`
 }
 
 func (w *Whitelist) TableName() string {
@@ -202,7 +203,8 @@ func routes(app *iris.Application, db *xorm.Engine) {
 		token := ctx.FormValue("token")
 
 		if !tokenRegex.MatchString(token) {
-			ctx.HTML("Invalid token data")
+			ctx.ViewData("message", "Invalid token data")
+			ctx.View("email-confirmation-error.html")
 			return
 		}
 
@@ -214,7 +216,8 @@ func routes(app *iris.Application, db *xorm.Engine) {
 			return
 		}
 		if !has {
-			ctx.HTML("Token not found or expired")
+			ctx.ViewData("message", "Token has not found, expired or already activated")
+			ctx.View("email-confirmation-error.html")
 			return
 		}
 
@@ -259,7 +262,7 @@ func routes(app *iris.Application, db *xorm.Engine) {
 				errs["passport"] = errors.New("Add a file of your passport")
 			}
 		if !captcha.VerifyString(ctx.FormValue("captchaId"), ctx.FormValue("captchaSolution")) {
-			errs["captchaSolution"] = errors.New("Captcha check has failed")
+			errs["captchaSolution"] = errors.New("Captcha check has been failed")
 		}
 
 		if len(errs) > 0 {
@@ -276,7 +279,7 @@ func routes(app *iris.Application, db *xorm.Engine) {
 		}
 		if has {
 			ctx.StatusCode(iris.StatusUnprocessableEntity)
-			ctx.JSON(map[string]interface{}{"errors": map[string]string{"email": "This email already registered."}})
+			ctx.JSON(map[string]interface{}{"errors": map[string]string{"email": "This email is already registered."}})
 			return
 		}
 
@@ -342,15 +345,15 @@ func sendEmail(to string, token string) {
 		To:   to,
 		From: config.NoReplyEmail,
 		Text: "Your whitelist submission is well received.\n\n" +
+			"To finish the whitelist application process please confirm your email by following the link/n" +
+			"https://mdl.life/whitelist/confirm_email?token=" + token + "\n\n" +
 			"The instructions of how to purchase the MDL Tokens to be send soon is confirmation that you have passed the whitelist.\n\n" +
-			"To confirm your email please paste this line in your browser url address line:\n" +
-			"http://mdl.life/whitelist/confirm_email?token=" + token + "\n\n" +
 			"For inquiries and support please contact support@mdl.life",
 		HTML: "<h3 style=\"color:purple;\">Your whitelist submission is well received.</h3><br>" +
+			"To finish the whitelist application process please confirm your email by clicking the link<br>" +
+			"<a href=\"https://mdl.life/whitelist/confirm_email?token=" + token + "\">" + "https://mdl.life/whitelist/confirm_email?token=" + token + "</a><br><br>" +
 			"The instructions of how to purchase the MDL Tokens to be send soon is confirmation that you have passed the whitelist.<br><br>" +
-			"To confirm your email please follow this link:<br>" +
-			"<a href=\"http://mdl.life/whitelist/confirm_email?token=" + token + "\">" + "http://mdl.life/whitelist/confirm_email?token=" + token + "</a><br><br>" +
-			"For inquiries and support please contact <a mailto=\"support@mdl.life\">support@mdl.life</a>",
+			"For inquiries and support please contact <a href=\"mailto:support@mdl.life\">support@mdl.life</a>",
 		Subject: "MDL Talent Hub: Whitelist application received",
 		ReplyTo: config.ReplyEmail,
 	}
