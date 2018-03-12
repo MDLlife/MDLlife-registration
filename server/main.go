@@ -360,7 +360,7 @@ func sendEmail(to string, token string) {
 		ReplyTo: config.ReplyEmail,
 	}
 
-	println(ses.SendEmail(emailData))
+	ses.SendEmail(emailData)
 }
 
 func combineDatetime(y string, m string, d string) string {
