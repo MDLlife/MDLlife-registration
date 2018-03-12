@@ -141,6 +141,8 @@ func main() {
 	}
 
 	db.ShowSQL(config.Debug) // Show SQL statement on standard output;
+	//db.SetMaxOpenConns(60)
+	//db.SetMaxIdleConns(5)
 
 	iris.RegisterOnInterrupt(func() {
 		db.Close()
@@ -216,7 +218,7 @@ func routes(app *iris.Application, db *xorm.Engine) {
 			return
 		}
 		if !has {
-			ctx.ViewData("message", "Token has not found, expired or already activated")
+			ctx.ViewData("message", "You can only activate your email once.")
 			ctx.View("email-confirmation-error.html")
 			return
 		}
