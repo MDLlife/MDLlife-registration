@@ -29,6 +29,7 @@ import (
 	"github.com/dchest/captcha"
 	"path"
 	"bytes"
+	"github.com/go-xorm/core"
 )
 
 /*
@@ -140,7 +141,10 @@ func main() {
 		app.Logger().Fatalf("db failed to initialized: %v", err)
 	}
 
-	db.ShowSQL(config.Debug) // Show SQL statement on standard output;
+	if config.Debug {
+		db.ShowSQL(true) // Show SQL statement on standard output;
+		db.Logger().SetLevel(core.LOG_DEBUG)
+	}
 	//db.SetMaxOpenConns(60)
 	//db.SetMaxIdleConns(5)
 
