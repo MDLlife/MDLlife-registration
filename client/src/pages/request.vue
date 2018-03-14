@@ -1,10 +1,3 @@
-<!--form content-->
-<!--1. Name (as in passsport)-->
-<!--2. Date of birth-->
-<!--3. country of residence-->
-<!--4. email-->
-<!--5. upload identity document (passport or driving license)-->
-
 <template lang="pug">
   div(class="request-view layout-padding")
     q-card.bg-white.card(inline)
@@ -12,40 +5,34 @@
         span(my-slot="subtitle")
           h3.title.text-indigo.color-5 Register user
       q-card-main
-        form.new-user-form(@submit.prevent="createUser")
+        form.new-user-form(@submit.prevent="submitForm")
           q-field(
-          icon="person"
-          label=""
-          helper=""
-          error-label="We need a valid name")
-            q-input(v-model="form.name" stack-label="Name (as in passsport)")
+          :error="!!errors.name"
+          :error-label="errors.name"
+          icon="fa-user")
+            q-input(v-model="form.name" stack-label="Full name as in passport")
 
           q-field.email(
-          icon="email"
-          label=""
-          helper=""
-          error-label="We need a valid name")
+          :error="!!errors.email"
+          :error-label="errors.email"
+          icon="fa-at")
             q-input(v-model="form.email" type="email" stack-label="Email")
 
           q-field(
-            icon="public"
-            label=""
-            helper=""
-            error-label="We need a valid name")
+            :error="!!errors.country"
+            :error-label="errors.country"
+            icon="public")
             q-input(
-              color="amber"
               v-model="form.country"
               placeholder=""
               stack-label="Country of residence")
               q-autocomplete(
-                :static-data="{field: 'value', list: countries}"
-                @selected="selected")
+                :static-data="{field: 'value', list: countries}")
 
           q-field(
-            icon="cake"
-            label=""
-            helper=""
-            error-label="We need a valid name")
+            :error="!!errors.birthday"
+            :error-label="errors.birthday"
+            icon="fa-calendar-alt")
             q-datetime(
               :error=false
               stack-label="Birthday"
@@ -57,25 +44,49 @@
               default-view="year")
 
           q-field(
-            icon="fa-id-card"
-            label=""
-            helper=""
-            error-label="We need a passport image")
-            q-input(v-model="form.passport" type="file" stack-label="Passport")
+            :error="!!errors.passport"
+            :error-label="errors.passport"
+            icon="fa-id-card")
+              q-input-file(
+                color="secondary"
+                auto-expand
+                v-model="form.passport"
+                stack-label="Upload identity document (passport or driving license)")
+
+          q-field(
+            :error="!!errors.captchaSolution"
+            :error-label="errors.captchaSolution"
+            inset="icon")
+            .row
+              .col
+                img.captcha-img(
+                :src="form._captchaSrc"
+                alt="captcha")
+                q-icon(
+                  name="fa-sync-alt"
+                  @click.native="reloadCaptcha()")
+                audio(
+                  id = "captcha-audio" style="display:none" preload=none)
+              .col-6.captcha-solution
+                q-input(v-model="form.captchaSolution")
 
           .float-right
-            q-btn(type="submit" big class="bg-primary text-white") Add
+            q-btn.bg-primary.text-white(
+              :loading="loading"
+              type="submit"
+              big
+              ) Add
+              q-spinner-hourglass( slot="loading" )
 </template>
 
 <script>
-// import { mapActions, mapGetters } from 'vuex'
-// import { Fire, Listen } from 'helpers'
-// import { User } from 'src/app/database/UserModel'
-import { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QAutocomplete, QDatetime, QUploader, Notify, date } from 'quasar'
+import { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QAutocomplete, QDatetime, QSpinnerHourglass, Notify, date } from 'quasar'
+import { QInputFile } from '@components/input-file'
 import countries from 'assets/countries.json'
+import Config from 'src/config'
 
 const today = new Date()
-const { subtractFromDate } = date
+const { subtractFromDate, formatDate } = date
 
 function parseCountries () {
   return countries.map(country => {
@@ -95,14 +106,16 @@ export default {
         email: null,
         country: null,
         birthday: null,
-        passport: null,
-        synced: '0'
+        passport: [],
+        captchaSolution: null,
+        captchaId: null,
+        _captchaSrc: null
       },
       minAge: subtractFromDate(today, { year: 18 }),
       maxAge: subtractFromDate(today, { year: 80 }),
-      select: '',
-      terms: '',
-      countries: parseCountries()
+      errors: {},
+      countries: parseCountries(),
+      loading: false
     }
   },
   methods: {
@@ -116,50 +129,94 @@ export default {
         textcolor: '#fff'
       })
     },
-    selected (item) {
-      this.$q.notify(`Selected suggestion "${item.label}"`)
-    },
     resetForm () {
-      this.form = {
-        first_name: null,
-        last_name: null,
-        email: null,
-        synced: '0',
-        interval: undefined
+      this.errors = {}
+
+      this.form.name = null
+      this.form.email = null
+      this.form.country = null
+      this.form.birthday = null
+      this.form.passport = []
+    },
+    setCaptcha () {
+      const form = this.form
+
+      this.$axios.get(Config('api.captcha_id'))
+        .then(function (response) {
+          if (response.status === 200) {
+            form.captchaSolution = null
+            form.captchaId = response.data
+            form._captchaSrc = Config('api.captcha') + form.captchaId + '.png'
+          }
+        })
+        .catch(function (error) {
+          console.log(error.response)
+        })
+    },
+    reloadCaptcha () {
+      let src = this.form._captchaSrc
+      if (!src) return
+      let p = src.indexOf('?')
+      if (p >= 0) {
+        src = src.substr(0, p)
       }
+
+      this.form._captchaSrc = src + '?reload=' + (new Date()).getTime()
+    },
+    submitForm () {
+      const self = this
+      const formData = new FormData()
+
+      this.loading = true
+
+      formData.append('name', this.form.name || '')
+      formData.append('email', this.form.email || '')
+      formData.append('birthday', formatDate(this.form.birthday, 'YYYY-MM-DD'))
+      formData.append('country', this.form.country || '')
+      formData.append('captchaId', this.form.captchaId || '')
+      formData.append('captchaSolution', this.form.captchaSolution || '')
+      formData.append('passport', this.form.passport[0])
+
+      this.$axios.post(Config('api.add_whitelist'), formData)
+        .then(function (response) {
+          console.log(response)
+          if (response.data && response.data.success) {
+            self.resetForm()
+            self.requestSuccess()
+          }
+        })
+        .catch(function (error) {
+          if (error && error.response) {
+            self.errors = {}
+
+            switch (error.response.status) {
+              case 422:
+                self.errors = error.response.data.errors || {}
+                break
+              default:
+                Notify.create({
+                  position: 'top',
+                  message: 'Server error code: ' + error.status,
+                  icon: 'warning',
+                  timeout: 5000,
+                  color: 'negative',
+                  textcolor: '#fff'
+                })
+                break
+            }
+          }
+        })
+        .finally(function () {
+          self.setCaptcha()
+          self.loading = false
+        })
     }
-    // async createUser () {
-    //   if (this.validForm) {
-    //     // if ('serviceWorker' in navigator && 'SyncManager' in window) {
-    //     //   navigator.serviceWorker.ready
-    //     //     .then(function (sw) {
-    //     //       return sw.sync.register('sync-new-user')
-    //     //     })
-    //     // }
-    //     //
-    //     // await User.add(this.form)
-    //     this.resetForm()
-    //   }
-    // },
-    // fire () {
-    //   const CLIENT_SECRET = env('CLIENT_SECRET', null)
-    //   // Fire('app.custom-event', { CLIENT_SECRET })
-    // },
-    // ...mapActions('users', [ 'getCurrentUser', 'getUsers' ])
   },
-  computed: {
-    // validForm () {
-    //   return this.form.first_name && this.form.last_name && this.form.email
-    // },
-    // ...mapGetters('users', ['currentUser', 'users'])
-  },
+  computed: {},
   mounted () {
-    this.requestSuccess()
-    // Listen('app.custom-event', (payload) => {
-    //   console.log('a custom event was dispatched', payload)
-    // })
+    this.setCaptcha()
   },
-  components: { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QAutocomplete, QDatetime, QUploader }
+  components: { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, QAutocomplete, QDatetime, QInputFile, QSpinnerHourglass }
 }
 </script>
 
@@ -185,6 +242,16 @@ export default {
       margin: 0 auto;
       .q-field {
         margin-bottom: 1rem;
+      }
+
+      .captcha-img {
+        border: 1px solid #eee;
+        width: 100%;
+        padding: 0.5rem 1rem;
+      }
+
+      .captcha-solution {
+        padding: 2rem 0 0 1.5rem;
       }
     }
   }

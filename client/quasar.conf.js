@@ -42,6 +42,8 @@ module.exports = function (ctx) {
         //cfg.resolve.alias['@app'] = path.resolve(__dirname, 'src/app')
         //cfg.resolve.alias.helpers = path.resolve(__dirname, 'src/app/helpers')
         //cfg.resolve.alias['@events'] = path.resolve(__dirname, 'src/app/events')
+        cfg.resolve.alias.src = path.resolve(__dirname, 'src');
+        cfg.resolve.alias['@components'] = path.resolve(__dirname, 'src/components');
 
         // Make our helper function Global
         cfg.plugins.push(
