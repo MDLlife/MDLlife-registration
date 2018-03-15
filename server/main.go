@@ -113,7 +113,7 @@ type Config struct {
 var (
 	config = &Config{}
 
-	nameValidatorRegex = regexp.MustCompile("(?:(\\pL|[-])+((?:\\s)+)?)")
+	nameValidatorRegex = regexp.MustCompile("^(?:(\\pL)+(?:(?:\\pL|[-\\s])+)?)$")
 	// YYYY-MM-DD // YYYY >= 1000 matches correct dates in months
 	dateValidatorRegex = regexp.MustCompile("^(?:[1-9]\\d{3}-(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|1\\d|2[0-9])|(?:0[13-9]|1[0-2])-(?:29|30)|(?:0[13578]|1[02])-31))$")
 	// phone number, simple
@@ -258,7 +258,7 @@ func routes(app *iris.Application, db *xorm.Engine) {
 
 		if e, ok := whitelist.Validate().(validation.Errors); ok {
 			for name, value := range e {
-				errs[name] = value
+				errs[strings.ToLower(name[:1]) + name[1:]] = value
 			}
 		}
 		if passportErr != nil {
