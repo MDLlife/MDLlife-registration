@@ -1,4 +1,8 @@
 Debug: bool
+AppKey: string
+
+AdminLogin: string
+AdminPassword: string
 
 AwsKey: string
 AwsSecret: string

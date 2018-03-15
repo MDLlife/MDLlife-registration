@@ -7,6 +7,8 @@ import (
 
 	"../config"
 	"../controller"
+	"time"
+	"github.com/kataras/iris/middleware/basicauth"
 )
 
 func Routes(app *iris.Application) {
@@ -28,4 +30,20 @@ func Routes(app *iris.Application) {
 
 	app.Get("/whitelist/confirm_email", controller.WhitelistConfirmEmail)
 	app.Post("/whitelist/request", iris.LimitRequestBodySize(config.Config.MaxFileUploadSizeMb<<20), controller.WhitelistRequest)
+
+	// admin section
+	authConfig := basicauth.Config{
+		Users:   map[string]string{config.Config.AdminLogin: config.Config.AdminPassword},
+		Realm:   "Authorization Required", // defaults to "Authorization Required"
+		Expires: time.Duration(1) * time.Minute,
+	}
+
+	authentication := basicauth.New(authConfig)
+
+	admin := app.Party("/admin", authentication)
+	{
+		admin.Get("/whitelist/list", func(ctx iris.Context) {
+			ctx.Text("admin hello!")
+		})
+	}
 }

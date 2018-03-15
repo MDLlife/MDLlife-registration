@@ -17,6 +17,7 @@ build:
 	$(GOBUILD) -o $(BINARY_NAME) -v cmd/main.go
 test:
 	$(GOTEST) -v ./tests/...
+	rm -f ./tests/test.db
 clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)

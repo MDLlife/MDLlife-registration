@@ -10,6 +10,10 @@ import (
 // config file structure
 type config struct {
 	Debug bool `yaml:"Debug"`
+	AppKey string `yaml:"AppKey"`
+
+	AdminLogin string `yaml:"AdminLogin"`
+	AdminPassword string `yaml:"AdminPassword"`
 
 	AwsKey    string `yaml:"AwsKey"`
 	AwsSecret string `yaml:"AwsSecret"`
