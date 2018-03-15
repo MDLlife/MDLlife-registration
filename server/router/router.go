@@ -18,7 +18,9 @@ func Routes(app *iris.Application) {
 	if config.Config.Debug {
 		crs := cors.New(cors.Options{
 			AllowedOrigins:   []string{"*"}, // allows everything, use that to change the hosts.
+			AllowedHeaders:   []string{"*"},
 			AllowCredentials: true,
+			Debug: true,
 		})
 
 		app.UseGlobal(crs)
@@ -40,8 +42,9 @@ func Routes(app *iris.Application) {
 
 	authentication := basicauth.New(authConfig)
 
-	admin := app.Party("/admin", authentication)
+	admin := app.Party("/admin", authentication).AllowMethods(iris.MethodOptions)  // <- important for the preflight.
 	{
+		admin.Get("/basic-auth", func(ctx iris.Context) {}) // to check auth
 		admin.Get("/whitelist/list", func(ctx iris.Context) {
 			ctx.Text("admin hello!")
 		})

@@ -14,8 +14,10 @@ func TestAdminAuth(t *testing.T) {
 	e.GET("/admin/whitelist/list").Expect().Status(httptest.StatusUnauthorized)
 
 	// with valid basic auth
+	e.GET("/admin/basic-auth").WithBasicAuth(config.Config.AdminLogin, config.Config.AdminPassword).Expect().
+		Status(httptest.StatusOK)
 	e.GET("/admin/whitelist/list").WithBasicAuth(config.Config.AdminLogin, config.Config.AdminPassword).Expect().
-		Status(httptest.StatusOK).Body()
+		Status(httptest.StatusOK)
 
 	// with invalid basic auth
 	e.GET("/admin/whitelist/list").WithBasicAuth("invalidusername", "invalidpassword").
