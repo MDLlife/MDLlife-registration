@@ -1,3 +1,6 @@
 /.idea/
 /server/config.yml
 /config.yml
+/server/kyc
+/database.db
+/server/database.db
