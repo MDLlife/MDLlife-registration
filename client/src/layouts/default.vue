@@ -16,7 +16,7 @@
           flat
           dense
           round
-          @click.native="route('/request')")
+          @click.native="route('/')")
           q-icon(name="person_add")
         q-btn(
           flat

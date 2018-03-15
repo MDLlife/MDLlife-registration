@@ -1,5 +1,16 @@
+import BasicAuth from 'src/app/auth'
+const basicAuth = new BasicAuth()
 
 export default [
+  {
+    path: '/',
+    component: () => import('layouts/default'),
+    children: [
+      { path: '', component: () => import('pages/request') },
+      { path: 'login', name: 'app.login', component: () => import('pages/login') }
+    ]
+  },
+
   {
     path: '/',
     component: () => import('layouts/default'),
@@ -9,19 +20,10 @@ export default [
     ]
   },
 
-  {
-    path: '/',
-    component: () => import('layouts/default'),
-    children: [
-      { path: 'request', component: () => import('pages/request') }
-    ]
-  },
-
-  { path: '/login', name: 'app.login', component: () => import('pages/login') },
   { path: '/logout',
     name: 'app.logout',
     beforeEnter (to, from, next) {
-      // auth.logout()
+      basicAuth.logout()
       next('/')
     }
   },
@@ -33,12 +35,12 @@ export default [
 ]
 
 function requireAuth (to, from, next) {
-  // if (!auth.loggedIn()) {
-  // next({
-  //   path: '/login',
-  //   query: { redirect: to.fullPath }
-  // })
-  // } else {
-  next()
-  // }
+  if (!basicAuth.isAuthenticated()) {
+    next({
+      path: '/login',
+      query: { redirect: to.fullPath }
+    })
+  } else {
+    next()
+  }
 }

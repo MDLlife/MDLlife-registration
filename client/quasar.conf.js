@@ -9,6 +9,7 @@ module.exports = function (ctx) {
   return {
     // app plugins (/src/plugins)
     plugins: [
+      'basicauth',
       'i18n',
       'axios'
     ],

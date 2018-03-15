@@ -6,15 +6,15 @@
           h3.title.text-indigo.color-5 Login
       q-card-main
         form(@submit.prevent="authenticate")
-          q-field.email(
-            icon="email"
+          q-field.username(
+            icon="fa-hashtag"
             label=""
             helper=""
             error-label="We need a valid email"
             )
-            q-input(v-model="form.username" stack-label="Email")
+            q-input(v-model="form.username" stack-label="Username")
           q-field.password(
-            icon="lock"
+            icon="fa-key"
             label=""
             helper=""
             error-label="Write a password"
@@ -25,7 +25,7 @@
 </template>
 <script>
 import { QInput, QField, QBtn, QCard, QCardTitle, QCardMain, Notify } from 'quasar'
-import { mapActions } from 'vuex'
+
 export default {
   data () {
     return {
@@ -49,13 +49,12 @@ export default {
       })
     },
     async authenticate () {
-      // let username = this.form.username
-      // let password = this.form.password
+      let username = this.form.username
+      let password = this.form.password
       try {
-        // let authentication = await this.$oauth.login(username, password)
-        // await this.getCurrentUser()
+        let authentication = await this.$basicauth.login(username, password)
         let redirection = '/' // Default route
-        if (this.$route.query.redirect) {
+        if (this.$route.query.redirect && authentication) {
           // If query has a prop redirect
           redirection = this.$route.query.redirect
         }
@@ -66,8 +65,7 @@ export default {
         console.log(error)
         this.loginError()
       }
-    },
-    ...mapActions('users', ['getCurrentUser', 'destroyCurrentUser'])
+    }
 
   },
   components: {
@@ -87,7 +85,7 @@ export default {
     justify-content: center;
     height: 100vh;
     background-color: #898989;
-    .email , .password{
+    .username , .password{
       margin-bottom: 2rem;
     }
     .card {
