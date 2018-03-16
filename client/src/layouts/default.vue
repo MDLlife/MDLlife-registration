@@ -32,10 +32,13 @@
         no-border
         link
         inset-delimiter)
-        q-list-header Links
-        q-item(@click.native="openURL('http://quasar-framework.org')")
-          q-item-side(icon="school")
-          q-item-main(label="Docs" sublabel="quasar-framework.org")
+        q-list-header Menu
+        q-item(@click.native="route('/')")
+          q-item-side(icon="person_add")
+          q-item-main(label="Add whitelist" sublabel="Add personal information")
+        q-item(@click.native="route('/check')")
+          q-item-side(icon="spellcheck")
+          q-item-main(label="Check" sublabel="Verify whitelists")
 
     q-page-container
       router-view
