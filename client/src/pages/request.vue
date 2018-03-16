@@ -10,13 +10,13 @@
           :error="!!errors.name"
           :error-label="errors.name"
           icon="fa-user")
-            q-input(v-model="form.name" stack-label="Full name as in passport")
+            q-input(v-model="form.name" stack-label="Full name as in passport" @input="removeError('name')")
 
           q-field.email(
           :error="!!errors.email"
           :error-label="errors.email"
           icon="fa-at")
-            q-input(v-model="form.email" type="email" stack-label="Email")
+            q-input(v-model="form.email" type="email" stack-label="Email" @input="removeError('email')")
 
           q-field(
             :error="!!errors.country"
@@ -25,7 +25,8 @@
             q-input(
               v-model="form.country"
               placeholder=""
-              stack-label="Country of residence")
+              stack-label="Country of residence"
+              @input="removeError('country')")
               q-autocomplete(
                 :static-data="{field: 'value', list: countries}")
 
@@ -41,7 +42,8 @@
               color="brown"
               :min="maxAge"
               :max="minAge"
-              default-view="year")
+              default-view="year"
+              @input="removeError('birthday')")
 
           q-field(
             :error="!!errors.passport"
@@ -51,7 +53,8 @@
                 color="secondary"
                 auto-expand
                 v-model="form.passport"
-                stack-label="Upload identity document (passport or driving license)")
+                stack-label="Upload identity document (passport or driving license)"
+                @input="removeError('passport')")
 
           q-field(
             :error="!!errors.captchaSolution"
@@ -68,7 +71,7 @@
                 audio(
                   id = "captcha-audio" style="display:none" preload=none)
               .col-6.captcha-solution
-                q-input(v-model="form.captchaSolution")
+                q-input(v-model="form.captchaSolution" @input="removeError('captchaSolution')")
 
           .float-right
             q-btn.bg-primary.text-white(
@@ -137,6 +140,9 @@ export default {
       this.form.country = null
       this.form.birthday = null
       this.form.passport = []
+    },
+    removeError (name) {
+      this.errors[name] = null
     },
     setCaptcha () {
       const form = this.form
