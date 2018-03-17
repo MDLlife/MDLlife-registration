@@ -15,18 +15,5 @@ export default {
   },
   addAuthorizationHeader (header) {
     Http.defaults.headers.common['Authorization'] = header
-  },
-  registerInterceptor (cb) {
-    Http.interceptors.response.use((response) => {
-      return response
-    }, err => {
-      const error = err.response
-
-      if (error.status === 401 && error.config && !error.config.__isRetryRequest) {
-        if (cb) cb()
-      }
-
-      return Promise.reject(error)
-    })
   }
 }

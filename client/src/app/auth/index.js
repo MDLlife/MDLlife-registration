@@ -41,9 +41,6 @@ class BasicAuth {
         .then(response => {
           self.storeSession(data)
           self.addAuthHeaders()
-          AuthService.registerInterceptor(function () {
-            self.$router.replace('/logout')
-          })
           resolve(response)
         })
         .catch(error => {
