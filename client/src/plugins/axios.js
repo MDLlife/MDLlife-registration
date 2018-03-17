@@ -12,7 +12,7 @@ export default ({ Vue }) => {
     return response
   }, err => {
     const error = err.response
-    if (error.status === 401 && error.config && !error.config.__isRetryRequest) {
+    if (error.status === 401 && error.config && !error.config.__isRetryRequest && Router.currentRoute.path !== '/login') {
       Router.replace('/logout')
     }
 
