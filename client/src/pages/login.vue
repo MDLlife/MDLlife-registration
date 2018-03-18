@@ -10,16 +10,18 @@
             icon="fa-hashtag"
             label=""
             helper=""
-            error-label="We need a valid email"
-            )
+            error-label="We need a valid username")
             q-input(v-model="form.username" stack-label="Username")
           q-field.password(
             icon="fa-key"
             label=""
             helper=""
-            error-label="Write a password"
-          )
-            q-input(v-model="form.password" stack-label="Password")
+            error-label="Write a password")
+            q-input(
+              v-model="form.password"
+              stack-label="Password"
+              type="password"
+              no-pass-toggle)
           .center
             q-btn(type="submit" big class="bg-primary text-white") Login
 </template>
