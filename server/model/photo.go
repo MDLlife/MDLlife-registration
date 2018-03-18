@@ -18,6 +18,7 @@ type Photo struct {
 	Id        int64
 	Path      string    `xorm:"varchar(255) not null unique"`
 	Extension string    `xorm:"varchar(5) not null"`
+	Src       string    `xorm:"-"`
 	CreatedAt time.Time `xorm:"created"`
 }
 

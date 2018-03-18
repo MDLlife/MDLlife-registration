@@ -17,18 +17,41 @@ import (
 type VerificationStage uint8
 
 const (
-	EMAIL_NOT_VERIFIED VerificationStage = iota
-	EMAIL_VERIFIED
-	FIRST_STAGE
+	STAGE_EMAIL_NOT_CONFIRMED VerificationStage = iota
+	STAGE_EMAIL_CONFIRMED
+	STAGE_DECLINED
+	STAGE_QUESTION
+	STAGE_ACCEPTED
 )
 
 func (u *VerificationStage) Scan(value interface{}) error { *u = VerificationStage(value.(uint8)); return nil }
 func (u VerificationStage) Value() (driver.Value, error)  { return uint8(u), nil }
 
+func NewVerificationStageFromString(s string) VerificationStage {
+	switch s {
+	case "unconfirmed":
+		return VerificationStage(STAGE_EMAIL_NOT_CONFIRMED)
+	case "confirmed":
+		return VerificationStage(STAGE_EMAIL_CONFIRMED)
+	case "declined":
+		return VerificationStage(STAGE_DECLINED)
+	case "question":
+		return VerificationStage(STAGE_QUESTION)
+	case "accepted":
+		return VerificationStage(STAGE_ACCEPTED)
+	case "all":
+	default:
+		return VerificationStage(STAGE_EMAIL_CONFIRMED)
+	}
+
+	return VerificationStage(STAGE_EMAIL_CONFIRMED)
+}
+
 // Whitelist is whitelist table structure.
 type Whitelist struct {
 	Id                int64
 	PassportId        int64             `xorm:"not null unique"`
+	Passport          Photo             `xorm:"extends"`
 	SelfieId          sql.NullInt64
 	Name              string            `xorm:"varchar(255) not null"`
 	Email             string            `xorm:"varchar(255) not null unique"`

@@ -7,6 +7,7 @@ import (
 
 	"../config"
 	"../controller"
+	controller_admin "../controller/admin"
 	"time"
 	"github.com/kataras/iris/middleware/basicauth"
 )
@@ -20,13 +21,13 @@ func Routes(app *iris.Application) {
 			AllowedOrigins:   []string{"*"}, // allows everything, use that to change the hosts.
 			AllowedHeaders:   []string{"*"},
 			AllowCredentials: true,
-			Debug: true,
+			//Debug: true,
 		})
 
 		app.UseGlobal(crs)
 	}
 
-	captchaRoute := app.Party("/captcha")
+	captchaRoute := app.Party("/captcha").AllowMethods(iris.MethodOptions) // <- important for the preflight.
 	captchaRoute.Get("/id", controller.CaptchaId)
 	captchaRoute.Get("/{captcha}", controller.CaptchaMedia)
 
@@ -42,11 +43,12 @@ func Routes(app *iris.Application) {
 
 	authentication := basicauth.New(authConfig)
 
-	admin := app.Party("/admin", authentication).AllowMethods(iris.MethodOptions)  // <- important for the preflight.
+	admin := app.Party("/admin", authentication).AllowMethods(iris.MethodOptions) // <- important for the preflight.
 	{
 		admin.Get("/basic-auth", func(ctx iris.Context) {}) // to check auth
-		admin.Get("/whitelist/list", func(ctx iris.Context) {
-			ctx.Text("admin hello!")
-		})
+		admin.Get("/whitelist/list", controller_admin.GetWhitelistList)
+		admin.Post("/whitelist/accept/{id:int min(1)}", controller_admin.WhitelistAccept)
+		admin.Post("/whitelist/decline/{id:int min(1)}", controller_admin.WhitelistDecline)
+		admin.Post("/whitelist/question/{id:int min(1)}", controller_admin.WhitelistQuestion)
 	}
 }

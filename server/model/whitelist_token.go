@@ -49,7 +49,7 @@ func (wt *WhitelistToken) TokenConfirmed() (w *Whitelist, err error) {
 		return nil, err
 	}
 
-	w.VerificationStage = EMAIL_VERIFIED
+	w.VerificationStage = STAGE_EMAIL_CONFIRMED
 	if _, err = tx.ID(w.Id).Cols("verification_stage").Update(w); err != nil {
 		return nil, err
 	}
