@@ -212,6 +212,10 @@ export default {
     },
     value (v) {
       this.files = this.value
+      if (!this.value.length) {
+        this.queue = []
+        this.__computeTotalSize()
+      }
     }
   },
   methods: {
