@@ -16,16 +16,16 @@ func Routes(app *iris.Application) {
 	// use recover(y) middleware, to prevent crash all app on request
 	app.Use(recover.New())
 
-	if config.Config.Debug {
-		crs := cors.New(cors.Options{
-			AllowedOrigins:   []string{"*"}, // allows everything, use that to change the hosts.
-			AllowedHeaders:   []string{"*"},
-			AllowCredentials: true,
-			//Debug: true,
-		})
+	var origins []string = []string{"*"}
 
-		app.UseGlobal(crs)
-	}
+	crs := cors.New(cors.Options{
+		AllowedOrigins:   origins, // allows everything, use that to change the hosts.
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
+		// Debug: true,
+	})
+
+	app.UseGlobal(crs)
 
 	captchaRoute := app.Party("/captcha").AllowMethods(iris.MethodOptions) // <- important for the preflight.
 	captchaRoute.Get("/id", controller.CaptchaId)
