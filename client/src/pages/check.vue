@@ -1,6 +1,5 @@
 <template lang="pug">
   q-page.docs-table( padding )
-    p.caption Pagination, sorting & filtering happens on the server
     q-table.responsive(
       ref="table"
       color="primary"
@@ -59,7 +58,7 @@
 
       template( slot="top-left" slot-scope="props" )
         .column
-          .q-table-title Server-side Pagination
+          .q-table-title Inquires
           br
           q-search.col-6(
             hide-underline
