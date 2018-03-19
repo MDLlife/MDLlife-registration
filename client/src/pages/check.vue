@@ -18,43 +18,46 @@
       template( slot="body" slot-scope="props" )
         q-tr.image-row( :props="props" )
           q-td( colspan="100%" )
-            .text-left
-              img(
-                v-if="imageRegex.test(props.row.Passport.Extension)"
-                :src="props.row.Passport.Src"
-                alt="")
-              br
-              q-btn(
-                outline
-                color="primary"
-                icon="fa-download"
-                @click.native="downloadBase64File(props.row.Passport.Src, 'passport-' + props.row.Passport.Id + '.' + props.row.Passport.Extension)")
-        q-tr( :props="props" )
-          q-td( key="name" :props="props" ) {{ props.row.Name }}
-          q-td( key="birthday" :props="props" ) {{ props.row.Birthday }}
-          q-td( key="country" :props="props" ) {{ props.row.Country }}
-          q-td.text-right( key="action" :props="props" )
-            q-btn(
-              v-if="!isDisableAction(props.row.VerificationStage, 'declined')"
-              :loading="loadingActions"
-              round
-              color="negative"
-              icon="fa-times"
-              @click.native="actionRequest(props.row.Id, 'decline')")
-            q-btn(
-              v-if="!isDisableAction(props.row.VerificationStage, 'question')"
-              :loading="loadingActions"
-              round
-              color="warning"
-              icon="fa-question"
-              @click.native="actionRequest(props.row.Id, 'question')")
-            q-btn(
-              v-if="!isDisableAction(props.row.VerificationStage, 'accepted')"
-              :loading="loadingActions"
-              round
-              color="positive"
-              icon="fa-check"
-              @click.native="actionRequest(props.row.Id, 'accept')")
+            .row
+              .col-12.text-left
+                img(
+                  v-if="imageRegex.test(props.row.Passport.Extension)"
+                  :src="props.row.Passport.Src"
+                  alt="")
+                br
+                q-btn(
+                  outline
+                  color="primary"
+                  icon="fa-download"
+                  @click.native="downloadBase64File(props.row.Passport.Src, 'passport-' + props.row.Passport.Id + '.' + props.row.Passport.Extension)")
+              .col-12.col-xl-3.td-column(
+                v-if="props.colsMap['name']") Full name: {{ props.row.Name }}
+              .col-12.col-xl-3.td-column(
+                v-if="props.colsMap['birthday']") Birthday: {{ props.row.Birthday }}
+              .col-12.col-xl-3.td-column(
+                v-if="props.colsMap['country']") Country: {{ props.row.Country }}
+              .col-12.col-lx-3.text-right( v-if="props.colsMap['action']" )
+                q-btn(
+                  v-if="!isDisableAction(props.row.VerificationStage, 'declined')"
+                  :loading="loadingActions"
+                  round
+                  color="negative"
+                  icon="fa-times"
+                  @click.native="actionRequest(props.row.Id, 'decline')")
+                q-btn(
+                  v-if="!isDisableAction(props.row.VerificationStage, 'question')"
+                  :loading="loadingActions"
+                  round
+                  color="warning"
+                  icon="fa-question"
+                  @click.native="actionRequest(props.row.Id, 'question')")
+                q-btn(
+                  v-if="!isDisableAction(props.row.VerificationStage, 'accepted')"
+                  :loading="loadingActions"
+                  round
+                  color="positive"
+                  icon="fa-check"
+                  @click.native="actionRequest(props.row.Id, 'accept')")
 
       template( slot="top-left" slot-scope="props" )
         .column
@@ -229,10 +232,8 @@ export default {
     .q-btn
       margin 5px
     tr.image-row
-      td
-        border-bottom 0
-      &:hover
-        background transparent
       img
         max-width 100%
+      .td-column
+        padding .5rem 1rem
 </style>
