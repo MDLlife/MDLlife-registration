@@ -43,8 +43,6 @@ func GetWhitelistList(ctx iris.Context) {
 	}
 
 	query = query.Table("whitelists").Alias("w")
-	query = query.Select("w.id, w.name, w.birthday, w.country, w.verification_stage, w.passport_id, p.id, p.path, p.extension")
-	query = query.Join("INNER", []string{"photos", "p"}, "p.id = w.passport_id")
 	if stageFilter == "all" {
 		query = query.Where("w.verification_stage >= ?", int(model.STAGE_EMAIL_CONFIRMED))
 	} else {
@@ -54,6 +52,15 @@ func GetWhitelistList(ctx iris.Context) {
 	if search != "" {
 		query = query.And("w.name LIKE ?", "%" + search + "%")
 	}
+
+	rowsNumber, err := query.Clone().Count(&model.Whitelist{})
+	if err != nil {
+		println("Can't count whitelists. " + err.Error())
+	}
+
+	// move below because it breaks count
+	query = query.Select("w.id, w.name, w.birthday, w.country, w.verification_stage, w.passport_id, p.id, p.path, p.extension")
+	query = query.Join("INNER", []string{"photos", "p"}, "p.id = w.passport_id")
 	if descending {
 		query = query.Desc("w."+sortBy)
 	} else {
@@ -62,8 +69,8 @@ func GetWhitelistList(ctx iris.Context) {
 	if rowsPerPage > 0 {
 		query = query.Limit(rowsPerPage, (page-1)*rowsPerPage)
 	}
-	rowsNumber, err := query.FindAndCount(&whitelists)
-	if err != nil {
+
+	if err := query.Find(&whitelists); err != nil {
 		println("Can't receive whitelists. " + err.Error())
 	}
 
