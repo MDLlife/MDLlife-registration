@@ -20,7 +20,7 @@ var (
 )
 
 func GetWhitelistList(ctx iris.Context) {
-	var whitelists []model.Whitelist
+	var whitelists []model.WhitelistPassport
 	descending, _ := strconv.ParseBool(ctx.FormValue("descending"))
 	page, _ := strconv.Atoi(ctx.FormValueDefault("page", "1"))
 	rowsPerPage, _ := strconv.Atoi(ctx.FormValue("rowsPerPage"))

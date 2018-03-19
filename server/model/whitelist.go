@@ -51,7 +51,6 @@ func NewVerificationStageFromString(s string) VerificationStage {
 type Whitelist struct {
 	Id                int64
 	PassportId        int64             `xorm:"not null unique"`
-	Passport          Photo             `xorm:"extends"`
 	SelfieId          sql.NullInt64
 	Name              string            `xorm:"varchar(255) not null"`
 	Email             string            `xorm:"varchar(255) not null unique"`
@@ -64,6 +63,16 @@ type Whitelist struct {
 }
 
 func (w *Whitelist) TableName() string {
+	return "whitelists"
+}
+
+// Whitelist with passport
+type WhitelistPassport struct {
+	Whitelist      `xorm:"extends"`
+	Passport Photo `xorm:"extends"`
+}
+
+func (wp *WhitelistPassport) TableName() string {
 	return "whitelists"
 }
 
@@ -118,5 +127,5 @@ func (w *Whitelist) StoreData() (emailToken string, err error) {
 }
 
 func (w *Whitelist) EmailExist() (has bool, err error) {
-	return db.Engine.Where("email = ?", w.Email).Exist(&Whitelist{})
+	return db.Engine.Select("id").Where("email = ?", w.Email).Exist(&Whitelist{})
 }
