@@ -11,7 +11,7 @@ export default ({ Vue }) => {
   Vue.prototype.$axios.interceptors.response.use((response) => {
     return response
   }, err => {
-    const error = err.response
+    const error = err.response || err
     if (error.status === 401 && error.config && !error.config.__isRetryRequest && Router.currentRoute.path !== '/login') {
       Router.replace('/logout')
     }

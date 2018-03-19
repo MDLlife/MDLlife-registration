@@ -186,6 +186,7 @@ export default {
       this.$axios.post(Config('api.add_whitelist'), formData)
         .then(function (response) {
           console.log(response)
+          debugger
           if (response.data && response.data.success) {
             self.resetForm()
             self.requestSuccess()
@@ -193,11 +194,15 @@ export default {
         })
         .catch(function (error) {
           if (error && error.response) {
+            error = error.response
+          }
+
+          if (error) {
             self.errors = {}
 
-            switch (error.response.status) {
+            switch (error.status) {
               case 422:
-                self.errors = error.response.data.errors || {}
+                self.errors = error.data.errors || {}
                 break
               default:
                 Notify.create({
