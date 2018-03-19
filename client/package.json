@@ -16,7 +16,12 @@
   },
   "devDependencies": {
     "babel-eslint": "8.2.2",
+    "devtron": "1.4.0",
     "dotenv": "^5.0.1",
+    "electron": "1.8.3",
+    "electron-debug": "1.5.0",
+    "electron-devtools-installer": "2.2.1",
+    "electron-packager": "11.1.0",
     "eslint": "4.18.2",
     "eslint-config-standard": "11.0.0",
     "eslint-friendly-formatter": "3.0.0",
