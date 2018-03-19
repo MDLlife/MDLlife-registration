@@ -25,14 +25,14 @@ func Routes(app *iris.Application) {
 		// Debug: true,
 	})
 
-	app.UseGlobal(crs)
+	root := app.Party("/", crs).AllowMethods(iris.MethodOptions) // <- important for the preflight.
 
-	captchaRoute := app.Party("/captcha").AllowMethods(iris.MethodOptions) // <- important for the preflight.
+	captchaRoute := root.Party("/captcha")
 	captchaRoute.Get("/id", controller.CaptchaId)
 	captchaRoute.Get("/{captcha}", controller.CaptchaMedia)
 
-	app.Get("/whitelist/confirm_email", controller.WhitelistConfirmEmail)
-	app.Post("/whitelist/request", iris.LimitRequestBodySize(config.Config.MaxFileUploadSizeMb<<20), controller.WhitelistRequest)
+	root.Get("/whitelist/confirm_email", controller.WhitelistConfirmEmail)
+	root.Post("/whitelist/request", iris.LimitRequestBodySize(config.Config.MaxFileUploadSizeMb<<20), controller.WhitelistRequest)
 
 	// admin section
 	authConfig := basicauth.Config{
@@ -43,7 +43,7 @@ func Routes(app *iris.Application) {
 
 	authentication := basicauth.New(authConfig)
 
-	admin := app.Party("/admin", authentication).AllowMethods(iris.MethodOptions) // <- important for the preflight.
+	admin := root.Party("/admin", authentication)
 	{
 		admin.Get("/basic-auth", func(ctx iris.Context) {}) // to check auth
 		admin.Get("/whitelist/list", controller_admin.GetWhitelistList)
