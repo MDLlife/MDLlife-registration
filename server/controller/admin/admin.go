@@ -59,7 +59,7 @@ func GetWhitelistList(ctx iris.Context) {
 	}
 
 	// move below because it breaks count
-	query = query.Select("w.id, w.name, w.birthday, w.country, w.verification_stage, w.passport_id, p.id, p.path, p.extension")
+	query = query.Select("w.id, w.name, w.email, w.birthday, w.country, w.verification_stage, w.passport_id, p.id, p.path, p.extension")
 	query = query.Join("INNER", []string{"photos", "p"}, "p.id = w.passport_id")
 	if descending {
 		query = query.Desc("w."+sortBy)
