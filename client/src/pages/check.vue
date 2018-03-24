@@ -32,9 +32,11 @@
                   @click.native="downloadBase64File(props.row.Passport.Src, 'passport-' + props.row.Passport.Id + '.' + props.row.Passport.Extension)")
               .col-12.col-xl-3.td-column(
                 v-if="props.colsMap['name']") Full name: {{ props.row.Name }}
-              .col-12.col-xl-3.td-column(
+              .col-12.col-xl-2.td-column(
+                v-if="props.colsMap['email']") E-mail: {{ props.row.Email }}
+              .col-12.col-xl-2.td-column(
                 v-if="props.colsMap['birthday']") Birthday: {{ props.row.Birthday }}
-              .col-12.col-xl-3.td-column(
+              .col-12.col-xl-2.td-column(
                 v-if="props.colsMap['country']") Country: {{ props.row.Country }}
               .col-12.col-lx-3.text-right( v-if="props.colsMap['action']" )
                 q-btn(
@@ -130,13 +132,14 @@ export default {
           field: 'Name',
           sortable: true
         },
+        { name: 'email', label: 'E-mail', field: 'Email', sortable: true },
         { name: 'birthday', label: 'Birthday', field: 'Birthday', sortable: true },
         { name: 'country', label: 'Country', field: 'Country', sortable: true },
         { name: 'action', label: 'Action' }
       ],
 
       filter: '',
-      visibleColumns: ['name', 'birthday', 'country', 'action'],
+      visibleColumns: ['name', 'email', 'birthday', 'country', 'action'],
       selected: [
         // initial selection
         { name: 'Ice cream sandwich' }
