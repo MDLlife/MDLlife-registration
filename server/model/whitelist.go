@@ -49,17 +49,21 @@ func NewVerificationStageFromString(s string) VerificationStage {
 
 // Whitelist is whitelist table structure.
 type Whitelist struct {
-	Id                int64
-	PassportId        int64             `xorm:"not null unique"`
-	SelfieId          sql.NullInt64
-	Name              string            `xorm:"varchar(255) not null"`
-	Email             string            `xorm:"varchar(255) not null unique"`
-	Phone             string            `xorm:"varchar(255) not null"`
-	Birthday          string            `xorm:"varchar(255) not null"`
-	Country           string            `xorm:"varchar(255) not null"`
-	VerificationStage VerificationStage `xorm:"not null default 0"`
-	CreatedAt         time.Time         `xorm:"created"`
-	UpdatedAt         time.Time         `xorm:"updated"`
+	Id                 int64
+	PassportId         int64             `xorm:"not null unique"`
+	SelfieId           sql.NullInt64
+	ResidentialPhotoId sql.NullInt64
+	StatementPhotoId   sql.NullInt64
+	Name               string            `xorm:"varchar(255) not null"`
+	Email              string            `xorm:"varchar(255) not null unique"`
+	Phone              string            `xorm:"varchar(255) not null"`
+	Address            string            `xorm:"varchar(1000) not null"`
+	Birthday           string            `xorm:"varchar(255) not null"`
+	Country            string            `xorm:"varchar(255) not null"`
+	Citizenship        string            `xorm:"varchar(255) not null"`
+	VerificationStage  VerificationStage `xorm:"not null default 0"`
+	CreatedAt          time.Time         `xorm:"created"`
+	UpdatedAt          time.Time         `xorm:"updated"`
 }
 
 func (w *Whitelist) TableName() string {
@@ -82,8 +86,10 @@ func (w Whitelist) Validate() error {
 		validation.Field(&w.Name, validation.Required, validation.Match(validation_rules.NameRegex)),
 		validation.Field(&w.Email, validation.Required, is.Email),
 		validation.Field(&w.Phone, validation.Match(validation_rules.PhoneNumberRegex)),
+		validation.Field(&w.Address, validation.Length(0, 1000)),
 		validation.Field(&w.Birthday, validation.Required, validation.Match(validation_rules.DateRegex)),
 		validation.Field(&w.Country, validation.Required, validation.Match(validation_rules.NameRegex)),
+		validation.Field(&w.Citizenship, validation.Required, validation.Match(validation_rules.NameRegex)),
 	)
 }
 

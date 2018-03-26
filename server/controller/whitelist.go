@@ -24,10 +24,13 @@ func WhitelistRequest(ctx iris.Context) {
 	}
 
 	whitelist := &model.Whitelist{
-		Name:     ctx.FormValue("name"),
-		Email:    ctx.FormValue("email"),
-		Country:  ctx.FormValue("country"),
-		Birthday: birthday,
+		Name:        ctx.FormValue("name"),
+		Email:       ctx.FormValue("email"),
+		Phone:       ctx.FormValue("phone"),
+		Address:     ctx.FormValue("address"),
+		Country:     ctx.FormValue("country"),
+		Citizenship: ctx.FormValue("citizenship"),
+		Birthday:    birthday,
 	}
 
 	// Get the file from the request.
@@ -37,7 +40,7 @@ func WhitelistRequest(ctx iris.Context) {
 
 	if e, ok := whitelist.Validate().(validation.Errors); ok {
 		for name, value := range e {
-			errs[strings.ToLower(name[:1]) + name[1:]] = value
+			errs[strings.ToLower(name[:1])+name[1:]] = value
 		}
 	}
 	if passportErr != nil {
@@ -88,6 +91,32 @@ func WhitelistRequest(ctx iris.Context) {
 		}
 
 		whitelist.SelfieId = sql.NullInt64{Int64: selfie.Id, Valid: true}
+	}
+
+	// Get ResidentialPhoto file from the request.
+	ResidentialPhotoFile, ResidentialPhotoInfo, ResidentialPhotoErr := ctx.FormFile("residental-photo")
+	if ResidentialPhotoErr == nil {
+		ResidentialPhoto := &model.Photo{}
+		if err := ResidentialPhoto.StoreFile(ResidentialPhotoFile, ResidentialPhotoInfo); err != nil {
+			ctx.StatusCode(iris.StatusInternalServerError)
+			println("Can't save ResidentialPhoto!\n\t" + err.Error())
+			return
+		}
+
+		whitelist.ResidentialPhotoId = sql.NullInt64{Int64: ResidentialPhoto.Id, Valid: true}
+	}
+
+	// Get StatementPhoto file from the request.
+	StatementPhotoFile, StatementPhotoInfo, StatementPhotoErr := ctx.FormFile("statment-photo")
+	if StatementPhotoErr == nil {
+		StatementPhoto := &model.Photo{}
+		if err := StatementPhoto.StoreFile(StatementPhotoFile, StatementPhotoInfo); err != nil {
+			ctx.StatusCode(iris.StatusInternalServerError)
+			println("Can't save StatementPhoto!\n\t" + err.Error())
+			return
+		}
+
+		whitelist.StatementPhotoId = sql.NullInt64{Int64: StatementPhoto.Id, Valid: true}
 	}
 
 	token, err := whitelist.StoreData()
