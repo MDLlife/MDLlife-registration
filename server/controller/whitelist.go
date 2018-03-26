@@ -94,7 +94,7 @@ func WhitelistRequest(ctx iris.Context) {
 	}
 
 	// Get ResidentialPhoto file from the request.
-	ResidentialPhotoFile, ResidentialPhotoInfo, ResidentialPhotoErr := ctx.FormFile("residental-photo")
+	ResidentialPhotoFile, ResidentialPhotoInfo, ResidentialPhotoErr := ctx.FormFile("residential-photo")
 	if ResidentialPhotoErr == nil {
 		ResidentialPhoto := &model.Photo{}
 		if err := ResidentialPhoto.StoreFile(ResidentialPhotoFile, ResidentialPhotoInfo); err != nil {
@@ -107,7 +107,7 @@ func WhitelistRequest(ctx iris.Context) {
 	}
 
 	// Get StatementPhoto file from the request.
-	StatementPhotoFile, StatementPhotoInfo, StatementPhotoErr := ctx.FormFile("statment-photo")
+	StatementPhotoFile, StatementPhotoInfo, StatementPhotoErr := ctx.FormFile("statement-photo")
 	if StatementPhotoErr == nil {
 		StatementPhoto := &model.Photo{}
 		if err := StatementPhoto.StoreFile(StatementPhotoFile, StatementPhotoInfo); err != nil {
