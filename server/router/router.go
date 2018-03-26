@@ -32,7 +32,7 @@ func Routes(app *iris.Application) {
 	captchaRoute.Get("/{captcha}", controller.CaptchaMedia)
 
 	root.Get("/whitelist/confirm_email", controller.WhitelistConfirmEmail)
-	root.Post("/whitelist/request", iris.LimitRequestBodySize(config.Config.MaxFileUploadSizeMb<<20), controller.WhitelistRequest)
+	root.Post("/whitelist/request", iris.LimitRequestBodySize((config.Config.MaxFileUploadSizeMb*3)<<20), controller.WhitelistRequest)
 
 	// admin section
 	authConfig := basicauth.Config{
